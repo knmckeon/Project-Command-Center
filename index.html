@@ -1,0 +1,3403 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700&family=Literata:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --navy: #0D1B2A;
+    --navy-mid: #1A2F45;
+    --navy-light: #243B55;
+    --slate: #2E4057;
+    --accent: #00C9A7;
+    --accent-dim: #00A38A;
+    --accent-muted: rgba(0,201,167,0.12);
+    --amber: #F4A261;
+    --amber-muted: rgba(244,162,97,0.15);
+    --rose: #E76F51;
+    --rose-muted: rgba(231,111,81,0.12);
+    --sky: #48CAE4;
+    --sky-muted: rgba(72,202,228,0.12);
+    --lavender: #9D8DF1;
+    --lavender-muted: rgba(157,141,241,0.12);
+    --text-primary: #E8EDF2;
+    --text-secondary: #8FA3B8;
+    --text-muted: #536B82;
+    --border: rgba(255,255,255,0.09);
+    --border-accent: rgba(0,201,167,0.3);
+    --surface: rgba(255,255,255,0.03);
+    --surface-hover: rgba(255,255,255,0.06);
+    --radius: 8px;
+    --radius-lg: 12px;
+    /* Header-specific — darker bg, brighter text */
+    --th-bg: #0F2236;
+    --th-text: #B8CCD8;
+    --th-border: rgba(255,255,255,0.13);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Literata', Georgia, serif; background: var(--navy); color: var(--text-primary); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+  /* HEADER */
+  .header { background: var(--navy-mid); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; gap: 2rem; position: sticky; top: 0; z-index: 100; height: 60px; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); white-space: nowrap; margin-right: auto; }
+  .logo span { color: var(--text-secondary); font-weight: 400; }
+  .nav { display: flex; gap: 0; overflow-x: auto; }
+  .nav-btn { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; padding: 0 1.1rem; height: 60px; cursor: pointer; transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
+  .nav-btn:hover { color: var(--text-primary); }
+  .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* LAYOUT */
+  .main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; }
+  .section-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 1.75rem; font-style: italic; }
+
+  /* CARDS */
+  .card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--th-text); margin-bottom: 1rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+
+  /* STAT TILES */
+  .stat-tile { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
+  .stat-label { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .stat-value { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 400; color: var(--text-primary); line-height: 1; margin-bottom: 0.4rem; }
+  .stat-sub { font-size: 12px; color: var(--text-secondary); }
+  .stat-good { color: var(--accent); }
+  .stat-warn { color: var(--amber); }
+  .stat-bad { color: var(--rose); }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin-top: 0.75rem; background: rgba(255,255,255,0.06); border-radius: 99px; height: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.4s ease; }
+  .progress-bar.warn { background: var(--amber); }
+  .progress-bar.over { background: var(--rose); }
+
+  /* TABLES */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .tbl th { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--th-text); text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--th-border); background: var(--th-bg); }
+  .tbl td { padding: 0.75rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--surface-hover); }
+  .tbl input, .tbl select { background: var(--navy); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-family: 'Literata', serif; font-size: 13px; padding: 0.3rem 0.5rem; width: 100%; outline: none; }
+
+  /* BADGES */
+  .badge { display: inline-block; font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; }
+  .badge-green { background: rgba(0,201,167,0.15); color: var(--accent); }
+  .badge-amber { background: var(--amber-muted); color: var(--amber); }
+  .badge-rose { background: var(--rose-muted); color: var(--rose); }
+  .badge-sky { background: var(--sky-muted); color: var(--sky); }
+  .badge-lavender { background: var(--lavender-muted); color: var(--lavender); }
+  .badge-gray { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+
+  /* BUTTONS */
+  .btn { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.5rem 1.1rem; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.4rem; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-muted); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--navy); font-weight: 600; }
+  .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); color: var(--navy); }
+  .btn-amber { background: var(--amber-muted); border-color: var(--amber); color: var(--amber); font-weight: 600; }
+  .btn-amber:hover { background: rgba(244,162,97,0.25); border-color: var(--amber); color: var(--amber); }
+  .btn-lavender { background: var(--lavender-muted); border-color: var(--lavender); color: var(--lavender); font-weight: 600; }
+  .btn-lavender:hover { background: rgba(157,141,241,0.25); border-color: var(--lavender); color: var(--lavender); }
+  .btn-sky { background: var(--sky-muted); border-color: var(--sky); color: var(--sky); font-weight: 600; }
+  .btn-sky:hover { background: rgba(72,202,228,0.25); border-color: var(--sky); color: var(--sky); }
+  .btn-danger:hover { background: var(--rose-muted); }
+  .btn-sm { padding: 0.3rem 0.7rem; font-size: 10px; }
+
+  /* FORM */
+  .form-row { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 120px; }
+  .field label { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .field input, .field select, .field textarea { background: var(--navy); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-family: 'Literata', serif; font-size: 14px; padding: 0.5rem 0.75rem; outline: none; transition: border-color 0.2s; width: 100%; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  /* ADD ROW */
+  .add-row { display: inline-flex; align-items: center; gap: 0.4rem; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); cursor: pointer; background: none; border: none; padding: 0.5rem 0; transition: color 0.2s; margin-top: 0.25rem; }
+  .add-row:hover { color: var(--accent); }
+
+  /* SHAREPOINT BROWSER */
+  .sp-row { display:flex; align-items:center; gap:.85rem; padding:.75rem 1.25rem; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; }
+  .sp-row:last-child { border-bottom:none; }
+  .sp-row:hover { background:var(--surface-hover); }
+
+  /* UPLOAD ZONE */
+  .upload-zone { border: 2px dashed rgba(0,201,167,0.25); border-radius: var(--radius-lg); padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-muted); }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .upload-icon { font-size: 32px; margin-bottom: 0.75rem; color: var(--accent); }
+  .upload-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 0.3rem; }
+  .upload-sub { font-size: 13px; color: var(--text-muted); }
+
+  /* HOURS TABLE */
+  .hours-col-header { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--th-text); padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--th-border); background: var(--th-bg); }
+  .hours-row { display: grid; grid-template-columns: 2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px; gap: 0; align-items: center; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .hours-row:hover { background: var(--surface-hover); }
+  .hours-row:last-child { border-bottom: none; }
+  .hours-cell { padding: 0.75rem 0.6rem; font-size: 13px; color: var(--text-primary); }
+  .hours-cell.mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .hours-cell.right { text-align: right; }
+  .hours-cell.muted { color: var(--text-secondary); }
+  .hours-header { display: grid; grid-template-columns: 2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px; gap: 0; border-bottom: 1px solid var(--th-border); background: var(--th-bg); border-radius: var(--radius) var(--radius) 0 0; }
+
+  /* TOTAL ROW */
+  .total-row { display: grid; grid-template-columns: 2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px; gap: 0; border-top: 1px solid var(--border-accent); background: rgba(0,201,167,0.05); border-radius: 0 0 var(--radius) var(--radius); }
+
+  /* LOGGED INPUT */
+  .logged-input { background: var(--navy); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: 'DM Mono', monospace; font-size: 13px; padding: 0.25rem 0.4rem; width: 80px; text-align: right; outline: none; transition: border-color 0.2s; }
+  .logged-input:focus { border-color: var(--accent); }
+
+  /* GANTT */
+  .gantt-wrap { overflow-x: auto; margin-top: 1rem; }
+  .gantt-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .gantt-table th { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--th-text); padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--th-border); background: var(--th-bg); }
+  .gantt-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+  /* GANTT MONTH HEADER */
+  .gantt-month-strip { position:relative; height:28px; width:100%; }
+  .gantt-month-label { position:absolute; top:0; height:100%; display:flex; align-items:center; font-family:'Syne',sans-serif; font-size:10px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--th-text); padding-left:6px; border-left:1px solid var(--th-border); overflow:hidden; white-space:nowrap; }
+  .gantt-month-label:first-child { border-left:none; }
+
+  /* GANTT MILESTONE MARKERS */
+  .gantt-bar-cell { position: relative; height: 32px; }
+  .gantt-bar { position: absolute; top: 6px; height: 20px; border-radius: 4px; background: var(--accent); opacity: 0.85; }
+  .gantt-bar.phase2 { background: var(--sky); }
+  .gantt-bar.phase3 { background: var(--lavender); }
+  .gantt-bar.phase4 { background: var(--amber); }
+  .gantt-marker { position: absolute; top: 2px; width: 12px; height: 28px; transform: translateX(-50%); cursor: pointer; z-index: 10; display: flex; flex-direction: column; align-items: center; }
+  .gantt-marker-dot { width: 10px; height: 10px; border-radius: 50%; background: white; border: 2px solid var(--navy); box-shadow: 0 0 0 2px rgba(255,255,255,0.5); margin-top: 4px; flex-shrink: 0; transition: transform 0.15s; }
+  .gantt-marker:hover .gantt-marker-dot { transform: scale(1.4); }
+  .gantt-tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--navy-mid); border: 1px solid var(--border-accent); border-radius: var(--radius); padding: 5px 10px; white-space: nowrap; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 500; color: var(--text-primary); pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .gantt-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--border-accent); }
+  .gantt-marker:hover .gantt-tooltip { opacity: 1; }
+
+
+
+  /* PHASE BLOCKS */
+  .phase-block { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 1rem; overflow: hidden; }
+  .phase-header { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; cursor: pointer; background: var(--surface); transition: background 0.2s; }
+  .phase-header:hover { background: var(--surface-hover); }
+  .phase-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); min-width: 24px; }
+  .phase-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; }
+  .phase-dates { font-size: 12px; color: var(--text-muted); font-style: italic; }
+  .phase-toggle { font-size: 18px; color: var(--text-muted); transition: transform 0.25s; }
+  .phase-body { padding: 0 1.25rem 1rem; display: none; }
+  .phase-block.open .phase-body { display: block; }
+  .phase-block.open .phase-toggle { transform: rotate(180deg); }
+  .milestone-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+  .milestone-row:last-child { border-bottom: none; }
+  .milestone-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 6px; flex-shrink: 0; }
+  .milestone-text { font-size: 14px; color: var(--text-primary); flex: 1; }
+  .milestone-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* TASK ROW */
+  .task-row { display: grid; grid-template-columns: 24px 3fr 1.5fr 1fr 1fr 80px; gap: 0.75rem; align-items: center; padding: 0.65rem 0.5rem; border-bottom: 1px solid var(--border); border-radius: var(--radius); transition: background 0.15s; }
+  .task-row:hover { background: var(--surface-hover); }
+  .task-row.done .task-name { text-decoration: line-through; color: var(--text-muted); }
+  .task-check { appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer; position: relative; transition: all 0.15s; flex-shrink: 0; }
+  .task-check:checked { background: var(--accent); border-color: var(--accent); }
+  .task-check:checked::after { content: '✓'; position: absolute; top: -1px; left: 2px; font-size: 11px; color: var(--navy); font-weight: 700; }
+  .task-name { font-size: 14px; color: var(--text-primary); }
+
+  /* CONTRACT CARDS */
+  .contract-card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1rem; position: relative; overflow: hidden; }
+  .contract-card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent); }
+  .contract-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+  .contract-name { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; }
+  .contract-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .financials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 0.75rem; }
+  .fin-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; }
+  .fin-label { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.35rem; }
+  .fin-value { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 400; color: var(--text-primary); }
+  .fin-delta { font-family: 'DM Mono', monospace; font-size: 12px; margin-top: 3px; }
+  .delta-pos { color: var(--accent); }
+  .delta-neg { color: var(--rose); }
+
+  /* NOTES */
+  .notes-layout { display: grid; grid-template-columns: 240px 1fr; gap: 1.25rem; min-height: 600px; }
+  .notes-sidebar { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.75rem; display: flex; flex-direction: column; gap: 0; overflow-y: auto; }
+  .ws-group { margin-bottom: 0.5rem; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .ws-group-label { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-primary); padding: 0.55rem 0.75rem; background: var(--navy-light); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+  .ws-group-label::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .ws-group-notes { background: var(--navy); padding: 0.35rem 0.35rem; display: flex; flex-direction: column; gap: 0.15rem; }
+  .note-link { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 5px; font-size: 13px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; border: none; background: none; text-align: left; width: 100%; }
+  .note-link:hover { background: var(--surface-hover); color: var(--text-primary); }
+  .note-link.active { background: var(--accent-muted); color: var(--accent); outline: 1px solid var(--border-accent); }
+  .note-empty { padding: 0.4rem 0.6rem; font-size:12px; color: var(--text-muted); font-style: italic; }
+  .note-editor { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; }
+  .note-editor-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .note-title-input { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 600; background: none; border: none; color: var(--text-primary); outline: none; flex: 1; }
+  .note-title-input::placeholder { color: var(--text-muted); }
+  .note-body { flex: 1; background: none; border: none; color: var(--text-primary); font-family: 'Literata', serif; font-size: 14.5px; line-height: 1.8; resize: none; outline: none; min-height: 500px; }
+  .note-body::placeholder { color: var(--text-muted); font-style: italic; }
+  .note-meta { font-family: 'Syne', sans-serif; font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; }
+
+  /* CELL RTE */
+  .cell-rte-wrap { display: flex; flex-direction: column; width: 100%; height: 100%; }
+  .cell-rte-toolbar { display: flex; align-items: center; gap: 1px; padding: 2px 4px; background: var(--navy-light); border-bottom: 1px solid var(--border); flex-wrap: nowrap; }
+  .cell-rte-body { min-height: 64px; font-size: 13px; padding: .4rem .5rem; line-height: 1.6; }
+
+
+  .rte-wrap { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .rte-toolbar { display: flex; align-items: center; gap: 2px; padding: 0.4rem 0.5rem; background: var(--navy-light); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .rte-btn { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--text-secondary); cursor: pointer; padding: 3px 7px; line-height: 1.4; transition: all 0.15s; min-width: 26px; text-align: center; }
+  .rte-btn:hover { background: var(--surface-hover); color: var(--text-primary); border-color: var(--border); }
+  .rte-btn.active { background: var(--accent-muted); color: var(--accent); border-color: var(--border-accent); }
+  .rte-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+  .rte-select { background: var(--navy); border: 1px solid var(--border); border-radius: 4px; color: var(--text-secondary); font-family: 'Literata', serif; font-size: 12px; padding: 2px 4px; outline: none; cursor: pointer; }
+  .rte-select:focus { border-color: var(--accent); }
+  .rte-body { flex: 1; background: transparent; color: var(--text-primary); font-family: 'Literata', serif; font-size: 14.5px; line-height: 1.8; padding: 0.75rem; outline: none; min-height: 460px; overflow-y: auto; }
+  .rte-body.rte-compact { min-height: 72px; max-height: 400px; overflow-y: auto; resize: vertical; }
+  .rte-body:empty::before { content: attr(data-placeholder); color: var(--text-muted); font-style: italic; pointer-events: none; }
+  .rte-body ul { padding-left: 1.75rem; margin: 0.25rem 0; list-style-type: disc !important; }
+  .rte-body ol { padding-left: 1.75rem; margin: 0.25rem 0; list-style-type: decimal !important; }
+  .rte-body li { margin-bottom: 0.15rem; display: list-item !important; }
+  .rte-body ul li { list-style-type: disc !important; }
+  .rte-body ol li { list-style-type: decimal !important; }
+
+  /* INTERNAL NOTES */
+  .int-section-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: .75rem; }
+  .int-field-label { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .3rem; }
+
+  /* Internal table */
+  .int-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+  .int-th { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--th-text); padding: .5rem .75rem; background: var(--th-bg); border: 1px solid var(--th-border); text-align: left; white-space: nowrap; }
+  .int-tbl-ws { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; color: var(--text-primary); padding: .65rem .75rem; border: 1px solid var(--border); background: var(--surface); vertical-align: top; white-space: nowrap; }
+  .int-tbl-cell { padding: .4rem .4rem; border: 1px solid var(--border); vertical-align: top; background: var(--navy); }
+  .int-tbl-textarea { width: 100%; background: transparent; border: none; color: var(--text-primary); font-family: 'Literata', serif; font-size: 13px; line-height: 1.6; resize: vertical; outline: none; min-height: 72px; padding: .25rem .35rem; }
+  .int-tbl-textarea:focus { background: rgba(0,201,167,0.04); border-radius: 4px; }
+  .int-tbl-input { width: 100%; background: transparent; border: none; color: var(--text-primary); font-family: 'Literata', serif; font-size: 13px; padding: .3rem .35rem; outline: none; }
+  .int-tbl-input:focus { background: rgba(0,201,167,0.04); border-radius: 4px; }
+  .int-tbl-input[type=date], .int-tbl-input[type=time] { font-family: 'DM Mono', monospace; font-size: 12px; color-scheme: dark; }
+
+
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--navy-mid); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.75rem; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 1.25rem; }
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+  /* HOURS SUB-TABS */
+  .hours-subtab { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; padding: 0.6rem 1.25rem; cursor: pointer; transition: color 0.2s, border-color 0.2s; }
+  .hours-subtab:hover { color: var(--text-primary); }
+  .hours-subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* WEEKLY GRID */
+  .wg-table { border-collapse: collapse; min-width: 600px; width: 100%; }
+  .wg-table th { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--th-text); padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--th-border); background: var(--th-bg); text-align: center; white-space: nowrap; }
+  .wg-table th.name-col { text-align: left; min-width: 160px; }
+  .wg-table td { padding: 0.55rem 0.4rem; border-bottom: 1px solid var(--border); text-align: center; }
+  .wg-table tr:last-child td { border-bottom: none; }
+  .wg-table tr:hover td { background: var(--surface-hover); }
+  .wg-table td.name-col { text-align: left; padding-left: 0.75rem; }
+  .wg-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .wg-sub { font-size: 11px; color: var(--text-muted); }
+  .wg-input { background: var(--navy); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-family: 'DM Mono', monospace; font-size: 12px; padding: 0.2rem 0.3rem; width: 52px; text-align: center; outline: none; transition: border-color 0.15s; }
+  .wg-input:focus { border-color: var(--accent); }
+  .wg-input::-webkit-inner-spin-button { display: none; }
+  .wg-week-total { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 500; }
+  .wg-row-total { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-primary); font-weight: 500; }
+  .wg-footer td { background: rgba(0,201,167,0.05); border-top: 1px solid var(--border-accent); font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 500; padding: 0.55rem 0.4rem; }
+  .wg-footer td.name-col { font-family: 'Syne', sans-serif; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); padding-left: 0.75rem; }
+
+  /* ROLLUP TABLE */
+  .ru-table { border-collapse: collapse; width: 100%; }
+  .ru-table th { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--th-text); padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--th-border); background: var(--th-bg); text-align: left; }
+  .ru-table th.right { text-align: right; }
+  .ru-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-primary); }
+  .ru-table tr:last-child td { border-bottom: none; }
+  .ru-table tr:hover td { background: var(--surface-hover); }
+  .ru-footer td { background: rgba(0,201,167,0.05); border-top: 1px solid var(--border-accent); font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; color: var(--accent); padding: 0.65rem 0.75rem; }
+
+  /* OVERVIEW INLINE EDIT */
+  .ov-input { background: transparent; border: 1px solid transparent; border-radius: 4px; color: var(--text-primary); font-family: 'Literata', serif; font-size: 13px; padding: 2px 5px; outline: none; transition: border-color 0.15s, background 0.15s; width: 100%; }
+  .ov-input:hover { border-color: var(--border); background: var(--navy); }
+  .ov-input:focus { border-color: var(--accent); background: var(--navy); }
+  .ov-num { font-family: 'DM Mono', monospace; text-align: right; }
+  .ov-num::-webkit-inner-spin-button { display: none; }
+
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  @media (max-width: 900px) {
+    .grid-4, .grid-5 { grid-template-columns: 1fr 1fr; }
+    .notes-layout { grid-template-columns: 1fr; }
+    .task-row { grid-template-columns: 24px 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo" id="header-logo">Project <span>Command Center</span></div>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showSection('notes',this)">Notes</button>
+    <button class="nav-btn" onclick="showSection('workplan',this)">Work Plan</button>
+    <button class="nav-btn" onclick="showSection('tasks',this)">Daily Tasks</button>
+    <button class="nav-btn" onclick="showSection('contracts',this)">Files</button>
+    <button class="nav-btn" onclick="showSection('hours',this)">Resources</button>
+  </nav>
+  <button onclick="switchProject()" style="background:none;border:1px solid var(--border);border-radius:var(--radius);color:var(--text-muted);font-family:'Syne',sans-serif;font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;cursor:pointer;flex-shrink:0;margin-left:.5rem;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'" title="Switch project or log out">⇄ Switch</button>
+</header>
+
+<main class="main">
+
+<!-- ══════════════ SECTION 1 — HOURS ══════════════ -->
+<section id="hours" class="section">
+  <div class="section-title">Resources</div>
+  <div class="section-sub">Upload your margin model to auto-load team members, then log hours weekly</div>
+
+  <!-- Upload zone -->
+  <div id="upload-area" style="margin-bottom:1.5rem;">
+    <div class="upload-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+      <div class="upload-icon">📊</div>
+      <div class="upload-title">Drop your Margin Model here</div>
+      <div class="upload-sub">or click to browse · Accepts .xlsx files</div>
+    </div>
+  </div>
+
+  <!-- Loaded file info -->
+  <div id="file-info" style="display:none;margin-bottom:1rem;" class="card">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <span style="font-size:20px;">✅</span>
+      <div>
+        <div id="file-name" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:var(--text-primary);"></div>
+        <div id="file-meta" style="font-size:12px;color:var(--text-muted);"></div>
+      </div>
+      <button class="btn btn-sm btn-danger" style="margin-left:auto;" onclick="clearFile()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;">
+    <button class="hours-subtab active" onclick="switchHoursTab('overview',this)">Overview</button>
+    <button class="hours-subtab" onclick="switchHoursTab('inputs',this)">Margin Model Inputs</button>
+    <button class="hours-subtab" onclick="switchHoursTab('weekly',this)">Weekly Log</button>
+  </div>
+
+  <!-- ── SUB-TAB: OVERVIEW ── -->
+  <div id="hours-tab-overview">
+
+    <!-- Top row: donut + role breakdown -->
+    <div class="grid-2" style="margin-bottom:1.5rem;align-items:start;">
+
+      <!-- Donut chart card -->
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;padding:1.5rem;">
+        <div class="card-title" style="align-self:flex-start;">Budgeted Cost Burn</div>
+        <div style="position:relative;width:200px;height:200px;margin:0.5rem auto;">
+          <svg id="donut-svg" viewBox="0 0 200 200" width="200" height="200">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="28"/>
+            <circle id="donut-arc" cx="100" cy="100" r="80" fill="none"
+              stroke="var(--accent)" stroke-width="28"
+              stroke-dasharray="0 502.65"
+              stroke-dashoffset="125.66"
+              stroke-linecap="round"
+              style="transition:stroke-dasharray 0.6s ease;"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div id="donut-pct" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--text-primary);">—</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">cost burned</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:1.5rem;margin-top:.5rem;">
+          <div style="text-align:center;">
+            <div style="font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);" id="donut-burned">$0</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Logged Cost</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'DM Mono',monospace;font-size:15px;color:var(--text-secondary);" id="donut-budget">$0</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Budgeted Cost</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-role hours breakdown -->
+      <div class="card">
+        <div class="card-title">Hours by Role</div>
+        <div id="role-breakdown">
+          <div style="color:var(--text-muted);font-size:13px;font-style:italic;">Upload a margin model to see role breakdown.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Project-level stat tiles (second row) -->
+    <div class="grid-4" style="margin-bottom:1.5rem;">
+      <div class="stat-tile">
+        <div class="stat-label">Total Budgeted Hours</div>
+        <div class="stat-value" id="ov-budget-hrs">—</div>
+        <div class="stat-sub">across all roles</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Total Hours Logged</div>
+        <div class="stat-value" id="ov-logged-hrs">—</div>
+        <div class="stat-sub" id="ov-hrs-sub">to date</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Remaining Hours</div>
+        <div class="stat-value" id="ov-remaining-hrs">—</div>
+        <div class="stat-sub">until budget</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Remaining Cost</div>
+        <div class="stat-value" id="ov-remaining-cost">—</div>
+        <div class="stat-sub">unburned budget</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── SUB-TAB: MARGIN MODEL INPUTS ── -->
+  <div id="hours-tab-inputs" style="display:none;">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1rem 1.25rem 0.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;">
+        <div class="card-title" style="margin:0;">Margin Model Inputs</div>
+        <div id="hours-empty-msg" style="font-size:13px;color:var(--text-muted);font-style:italic;">Upload a margin model or add resources manually</div>
+      </div>
+      <div class="hours-header" id="hours-header" style="display:none;grid-template-columns:2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px 36px;">
+        <div class="hours-col-header">Name / Workstream</div>
+        <div class="hours-col-header">Level</div>
+        <div class="hours-col-header" style="text-align:right;">Hrs/Wk</div>
+        <div class="hours-col-header" style="text-align:right;">Wks</div>
+        <div class="hours-col-header" style="text-align:right;">Budgeted Hrs</div>
+        <div class="hours-col-header" style="text-align:right;">Hourly Cost</div>
+        <div class="hours-col-header" style="text-align:right;">Total Cost</div>
+        <div class="hours-col-header" style="text-align:right;">Total Fees</div>
+        <div class="hours-col-header">Logged vs Projected</div>
+        <div class="hours-col-header"></div>
+      </div>
+      <div id="hours-rows"></div>
+      <div class="total-row" id="hours-totals" style="display:none;grid-template-columns:2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px 36px;">
+        <div class="hours-cell" style="font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);">Totals</div>
+        <div class="hours-cell"></div><div class="hours-cell"></div><div class="hours-cell"></div>
+        <div class="hours-cell mono right" id="tot-budget-hrs"></div>
+        <div class="hours-cell"></div>
+        <div class="hours-cell mono right" id="tot-cost"></div>
+        <div class="hours-cell mono right" id="tot-fees"></div>
+        <div class="hours-cell">
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <div class="progress-wrap" style="flex:1;margin-top:0;"><div class="progress-bar" id="tot-progress-bar" style="width:0%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);" id="tot-pct">0%</span>
+          </div>
+        </div>
+        <div class="hours-cell"></div>
+      </div>
+      <div id="hours-add-btn" style="padding:.75rem 1.25rem;border-top:1px solid var(--border);">
+        <button class="add-row" onclick="addResourceRow()">+ Add Resource</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUB-TAB: WEEKLY LOG ── -->
+  <div id="hours-tab-weekly" style="display:none;">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+      <button class="btn" onclick="changeWeeklyMonth(-1)">← Prev</button>
+      <div id="weekly-month-label" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);min-width:160px;text-align:center;"></div>
+      <button class="btn" onclick="changeWeeklyMonth(1)">Next →</button>
+      <div style="margin-left:auto;font-size:12px;color:var(--text-muted);font-style:italic;">Showing weeks starting Monday · Totals reflect full project</div>
+    </div>
+    <div style="overflow-x:auto;"><div id="weekly-grid"></div></div>
+    <div style="margin-top:1.5rem;">
+      <div class="card-title" style="margin-bottom:.75rem;">Full Project Totals by Resource</div>
+      <div style="overflow-x:auto;"><div id="weekly-rollup"></div></div>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ══════════════ SECTION 2 — WORK PLAN ══════════════ -->
+<section id="workplan" class="section">
+  <div class="section-title">High Level Work Plan</div>
+  <div class="section-sub">Phases, milestones, and timeline overview</div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">Timeline Overview</div>
+    <div class="gantt-wrap">
+      <table class="gantt-table">
+        <thead>
+          <tr>
+            <th style="width:180px;">Phase</th>
+            <th style="width:90px;">Start</th>
+            <th style="width:90px;">End</th>
+            <th style="width:70px;">Status</th>
+            <th id="gantt-month-header" style="padding:0;position:relative;"></th>
+          </tr>
+        </thead>
+        <tbody id="gantt-body"></tbody>
+      </table>
+    </div>
+    <button class="add-row" style="margin-top:.5rem;" onclick="addPhase()">+ Add Phase</button>
+  </div>
+
+  <div id="phase-blocks"></div>
+  <button class="btn" onclick="addPhase()">+ Add Phase Detail</button>
+</section>
+
+
+<!-- ══════════════ SECTION 3 — DAILY TASKS ══════════════ -->
+<section id="tasks" class="section">
+  <div class="section-title">Daily Tasks</div>
+  <div class="section-sub">Task list with due dates and ownership assignments</div>
+
+  <div style="display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;">
+    <input type="text" id="task-search" placeholder="Search tasks…" style="background:var(--navy-mid);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:'Literata',serif;font-size:14px;padding:.45rem .75rem;outline:none;width:220px;" oninput="filterTasks()">
+    <select id="task-filter-owner" onchange="filterTasks()" style="background:var(--navy-mid);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-secondary);font-family:'Literata',serif;font-size:13px;padding:.45rem .75rem;outline:none;">
+      <option value="">All owners</option>
+    </select>
+    <select id="task-filter-status" onchange="filterTasks()" style="background:var(--navy-mid);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-secondary);font-family:'Literata',serif;font-size:13px;padding:.45rem .75rem;outline:none;">
+      <option value="">All statuses</option>
+      <option value="open">Open</option>
+      <option value="done">Complete</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <button class="btn btn-accent" onclick="openTaskModal()">+ New Task</button>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:1.25rem;">
+    <div class="stat-tile"><div class="stat-label">Total Tasks</div><div class="stat-value" id="t-total">0</div></div>
+    <div class="stat-tile"><div class="stat-label">Completed</div><div class="stat-value stat-good" id="t-done">0</div></div>
+    <div class="stat-tile"><div class="stat-label">Open</div><div class="stat-value" id="t-open">0</div></div>
+    <div class="stat-tile"><div class="stat-label">Overdue</div><div class="stat-value stat-bad" id="t-overdue">0</div></div>
+  </div>
+
+  <div class="card">
+    <div style="display:grid;grid-template-columns:24px 3fr 1.5fr 1fr 1fr 80px;gap:.75rem;padding:.5rem;margin-bottom:.25rem;">
+      <span></span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Task</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Workstream</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Owner</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Due Date</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Urgent</span>
+    </div>
+    <div id="task-list"></div>
+  </div>
+</section>
+
+
+<!-- ══════════════ SECTION 4 — FILES ══════════════ -->
+<section id="contracts" class="section">
+  <div class="section-title">Files</div>
+  <div class="section-sub">SharePoint documents and business cases</div>
+
+  <!-- Sub-tabs -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;">
+    <button class="hours-subtab active" onclick="switchContractsTab('sharepoint',this)">SharePoint</button>
+    <button class="hours-subtab" onclick="switchContractsTab('businesscases',this)">Business Cases</button>
+  </div>
+
+  <!-- ── SHAREPOINT TAB ── -->
+  <div id="contracts-tab-sharepoint">
+
+    <!-- Direct folder link -->
+    <div class="card" style="margin-bottom:1.5rem;display:flex;align-items:center;gap:1.25rem;padding:1.25rem 1.5rem;">
+      <span style="font-size:28px;">📁</span>
+      <div style="flex:1;">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:3px;">2026 Engagement</div>
+        <div style="font-size:12px;color:var(--text-muted);">Premier Inc. SharePoint · PhysicianEnterpriseAdvisory</div>
+      </div>
+      <a href="https://premierinc.sharepoint.com/teams/PhysicianEnterpriseAdvisory/Shared%20Documents/3.%20Projects/Prisma/2026%20Engagement" target="_blank" style="text-decoration:none;">
+        <button class="btn btn-accent">↗ Open in SharePoint</button>
+      </a>
+    </div>
+
+    <!-- Manually tracked files -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+      <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--th-text);">Tracked Files</div>
+      <button class="btn btn-accent btn-sm" onclick="openAddFileModal()">+ Add File Link</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;" id="sp-file-list">
+      <div style="padding:2rem;text-align:center;color:var(--text-muted);font-style:italic;font-size:13px;">
+        No files tracked yet — click + Add File Link to paste a SharePoint link.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BUSINESS CASES TAB ── -->
+  <div id="contracts-tab-businesscases" style="display:none;">
+    <div class="upload-zone" id="bc-drop-zone" style="margin-bottom:1.5rem;cursor:pointer;">
+      <input type="file" id="bc-file-input" accept=".pdf" onchange="handleBusinessCaseUpload(this.files[0])">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Drop a Business Case PDF here</div>
+      <div class="upload-sub">or click to browse · PDF files only</div>
+    </div>
+    <div id="bc-list">
+      <div style="text-align:center;padding:2rem;color:var(--text-muted);font-style:italic;">No business cases uploaded yet.</div>
+    </div>
+  </div>
+
+</section>
+
+
+
+<!-- ══════════════ SECTION 5 — NOTES ══════════════ -->
+<section id="notes" class="section active">
+  <div class="section-title">Notes</div>
+  <div class="section-sub">Client-facing and internal meeting notes, organized by section</div>
+
+  <!-- Notes sub-tabs -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;">
+    <button class="hours-subtab active" id="notes-tab-internal-btn" onclick="switchNotesTab('internal',this)">Internal Meetings</button>
+    <button class="hours-subtab" id="notes-tab-client-btn" onclick="switchNotesTab('client',this)">Client Meetings</button>
+  </div>
+
+  <!-- ── INTERNAL MEETINGS TAB ── -->
+  <div id="notes-tab-internal">
+    <div style="display:flex;gap:.75rem;margin-bottom:1rem;">
+      <button class="btn btn-accent" onclick="openNewInternalNoteModal()">+ New Weekly Touchpoint</button>
+      <button class="btn btn-lavender" onclick="openNewInternalSectionModal()">+ New Section</button>
+      <button class="btn btn-amber" onclick="openNewInternalFreeformModal()">+ New Note</button>
+    </div>
+    <div class="notes-layout">
+      <div class="notes-sidebar" id="notes-sidebar-internal"></div>
+      <div class="note-editor" id="note-editor-internal" style="overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-style:italic;font-size:14px;">Select a note or create a new one</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CLIENT MEETINGS TAB ── -->
+  <div id="notes-tab-client" style="display:none;">
+    <div style="display:flex;gap:.75rem;margin-bottom:1rem;">
+      <button class="btn btn-lavender" onclick="openNewWorkstreamModal('client')">+ New Section</button>
+      <button class="btn btn-amber" onclick="openNewNoteModal('client')">+ New Client Note</button>
+    </div>
+    <div class="notes-layout">
+      <div class="notes-sidebar" id="notes-sidebar-client"></div>
+      <div class="note-editor" id="note-editor-client">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-style:italic;font-size:14px;">Select a note or create a new one</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+<!-- ══════════════ SETUP MODAL ══════════════ -->
+<div class="modal-backdrop open" id="setup-modal" style="z-index:300;">
+  <div class="modal" style="width:540px;">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem;">Project Command Center</div>
+      <div style="font-size:14px;color:var(--text-secondary);">Create a new project or join an existing one with a password.</div>
+    </div>
+
+    <!-- Tab toggle -->
+    <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.25rem;">
+      <button id="setup-tab-create" onclick="setupSwitchTab('create')"
+        style="flex:1;padding:.55rem;font-family:'Syne',sans-serif;font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;border:none;cursor:pointer;background:var(--accent);color:var(--navy);transition:all .2s;">
+        Create New Project
+      </button>
+      <button id="setup-tab-join" onclick="setupSwitchTab('join')"
+        style="flex:1;padding:.55rem;font-family:'Syne',sans-serif;font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;border:none;cursor:pointer;background:var(--navy);color:var(--text-muted);transition:all .2s;">
+        Join Existing Project
+      </button>
+    </div>
+
+    <!-- CREATE -->
+    <div id="setup-create-form">
+      <div class="form-row">
+        <div class="field" style="flex:2;"><label>Project Name</label>
+          <input type="text" id="setup-project-name" placeholder="e.g. Prisma 2026 Engagement" style="font-size:15px;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Client / Organization</label>
+          <input type="text" id="setup-client" placeholder="e.g. Prisma Health">
+        </div>
+        <div class="field"><label>Password <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(share with coworkers)</span></label>
+          <input type="password" id="setup-password-create" placeholder="Choose a password…">
+        </div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:.75rem 0;">
+      <div class="form-row">
+        <div class="field" style="flex:2;"><label>Margin Model <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+          <input type="file" id="setup-margin-model" accept=".xlsx,.xls"
+            style="background:var(--navy);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-secondary);font-family:'Literata',serif;font-size:13px;padding:.4rem .6rem;cursor:pointer;width:100%;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>SharePoint URL <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+          <input type="url" id="setup-sharepoint-url" placeholder="Paste SharePoint folder link…">
+        </div>
+        <div class="field"><label>SharePoint Folder Name</label>
+          <input type="text" id="setup-sharepoint-name" placeholder="e.g. 2026 Engagement">
+        </div>
+      </div>
+      <div id="setup-create-error" style="display:none;color:var(--rose);font-size:13px;margin-top:.5rem;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeSetup(false)">Skip for now</button>
+        <button class="btn btn-accent" onclick="dbCreateProject()">Create Project →</button>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div id="setup-join-form" style="display:none;">
+      <div class="form-row">
+        <div class="field" style="flex:2;"><label>Project Name</label>
+          <input type="text" id="setup-join-name" placeholder="Enter exact project name…">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field" style="flex:2;"><label>Password</label>
+          <input type="password" id="setup-password-join" placeholder="Enter project password…">
+        </div>
+      </div>
+      <div id="setup-join-error" style="display:none;color:var(--rose);font-size:13px;margin-top:.5rem;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeSetup(false)">Skip for now</button>
+        <button class="btn btn-accent" onclick="dbJoinProject()">Join Project →</button>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="setup-loading" style="display:none;text-align:center;padding:1rem;color:var(--text-muted);font-style:italic;">Connecting…</div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="task-modal">
+  <div class="modal">
+    <div class="modal-title">New Task</div>
+    <div class="form-row"><div class="field" style="flex:2;"><label>Task Name</label><input type="text" id="tm-name" placeholder="Describe the task…"></div></div>
+    <div class="form-row">
+      <div class="field"><label>Workstream</label><select id="tm-ws"></select></div>
+      <div class="field"><label>Owner</label><input type="text" id="tm-owner" placeholder="Name or initials"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Due Date</label><input type="date" id="tm-due"></div>
+      <div class="field" style="justify-content:flex-end;">
+        <label style="flex-direction:row;align-items:center;gap:.5rem;cursor:pointer;">
+          <input type="checkbox" id="tm-urgent" style="width:15px;height:15px;accent-color:var(--rose);cursor:pointer;">
+          <span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Urgent</span>
+        </label>
+      </div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="tm-notes" placeholder="Additional context…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="milestone-modal">
+  <div class="modal" style="width:500px;">
+    <div class="modal-title" id="milestone-modal-title">Add Milestone</div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>Milestone Title</label><input type="text" id="mm-title" placeholder="Short name shown on timeline…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>Description</label><input type="text" id="mm-desc" placeholder="Additional detail (optional)…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Target Date</label><input type="date" id="mm-date" onchange="checkMilestoneDate()"></div>
+    </div>
+    <div id="mm-warning" style="display:none;background:var(--amber-muted);border:1px solid var(--amber);border-radius:var(--radius);padding:.6rem .85rem;font-size:13px;color:var(--amber);margin-bottom:.5rem;">
+      ⚠️ This date falls outside the workstream's start–end range. You can still save it, but it won't appear on the Gantt bar.
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('milestone-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveMilestone()">Save Milestone</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="add-file-modal">
+  <div class="modal" style="width:540px;">
+    <div class="modal-title">Add File Link</div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>File Name</label><input type="text" id="af-name" placeholder="e.g. Advisory Margin Model_Prisma.xlsx"></div>
+    </div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>SharePoint URL</label><input type="url" id="af-url" placeholder="Paste the SharePoint link here…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>File Type</label>
+        <select id="af-type">
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="docx">Word (.docx)</option>
+          <option value="pptx">PowerPoint (.pptx)</option>
+          <option value="pdf">PDF</option>
+          <option value="folder">Folder</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <input type="text" id="af-category" placeholder="e.g. Financial, Planning…">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('add-file-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveFileLink()">Add File</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="bc-viewer-modal">
+  <div class="modal" style="width:700px;max-height:90vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+      <div class="modal-title" id="bc-viewer-title" style="margin:0;flex:1;">Business Case</div>
+      <a id="bc-download-link" download style="text-decoration:none;">
+        <button class="btn btn-accent">⬇ Download</button>
+      </a>
+      <button class="btn btn-sm" onclick="closeModal('bc-viewer-modal')">✕ Close</button>
+    </div>
+    <div id="bc-viewer-extracted" style="margin-bottom:1rem;"></div>
+    <div style="flex:1;min-height:400px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <iframe id="bc-viewer-frame" style="width:100%;height:100%;min-height:400px;border:none;background:white;"></iframe>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="contract-modal">
+  <div class="modal">
+    <div class="modal-title">Add Contract</div>
+    <div class="form-row"><div class="field" style="flex:2;"><label>Contract / Vendor Name</label><input type="text" id="cm-name" placeholder="Contract name…"></div></div>
+    <div class="form-row">
+      <div class="field"><label>Signed Date</label><input type="date" id="cm-date"></div>
+      <div class="field"><label>Status</label><select id="cm-status"><option>Active</option><option>Pending</option><option>Completed</option><option>On Hold</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Projected Value ($)</label><input type="number" id="cm-projected" placeholder="0"></div>
+      <div class="field"><label>Realized to Date ($)</label><input type="number" id="cm-realized" placeholder="0"></div>
+    </div>
+    <div class="field"><label>Notes / Description</label><textarea id="cm-notes" placeholder="Contract scope, terms, key contacts…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('contract-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveContract()">Save Contract</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="note-modal">
+  <div class="modal" style="width:620px;">
+    <div class="modal-title">New Client Note</div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>Note Title</label><input type="text" id="nm-title" placeholder="Meeting, decision, summary…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Section</label><select id="nm-ws"></select></div>
+    </div>
+    <div class="field" style="margin-top:.25rem;">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Transcript / Copilot Text <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(optional)</span></span>
+        <button type="button" onclick="document.getElementById('nm-transcript').value=''" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;padding:0;text-transform:none;letter-spacing:0;">Clear</button>
+      </label>
+      <textarea id="nm-transcript" placeholder="Paste a Copilot summary, meeting transcript, or any text here — it will be used as the note body. Leave blank to start from the standard template." style="min-height:140px;font-size:13px;line-height:1.6;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('note-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveNote()">Create Note</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="internal-freeform-modal">
+  <div class="modal" style="width:620px;">
+    <div class="modal-title">New Internal Note</div>
+    <div class="form-row">
+      <div class="field" style="flex:2;"><label>Note Title</label><input type="text" id="ifm-title" placeholder="Meeting name, topic…"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Section</label><select id="ifm-section"></select></div>
+    </div>
+    <div class="field" style="margin-top:.25rem;">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Transcript / Copilot Text <span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(optional)</span></span>
+        <button type="button" onclick="document.getElementById('ifm-transcript').value=''" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;padding:0;text-transform:none;letter-spacing:0;">Clear</button>
+      </label>
+      <textarea id="ifm-transcript" placeholder="Paste a Copilot summary or transcript here — leave blank to use the standard template." style="min-height:120px;font-size:13px;line-height:1.6;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('internal-freeform-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveInternalFreeformNote()">Create Note</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="internal-section-modal">
+  <div class="modal">
+    <div class="modal-title">New Internal Section</div>
+    <div class="form-row"><div class="field"><label>Section Name</label><input type="text" id="ism-name" placeholder="e.g. Leadership Updates, Team Meetings…"></div></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('internal-section-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveInternalSection()">Add Section</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="internal-note-modal">
+  <div class="modal" style="width:480px;">
+    <div class="modal-title">New Weekly Touchpoint</div>
+    <div class="form-row">
+      <div class="field"><label>Week Of</label><input type="date" id="inm-date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('internal-note-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveInternalNote()">Create</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="ws-modal">
+  <div class="modal">
+    <div class="modal-title">New Section</div>
+    <div class="form-row"><div class="field"><label>Section Name</label><input type="text" id="wsm-name" placeholder="e.g. Finance, Operations, HR…"></div></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('ws-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveWorkstream()">Add Section</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+const state = {
+  workstreams: ['General'],
+  hourRows: [],
+  projectWeeks: [],
+  weeklyViewYear: new Date().getFullYear(),
+  weeklyViewMonth: new Date().getMonth(),
+  phases: [],
+  tasks: [],
+  contracts: [],
+  businessCases: [],
+  trackedFiles: [],
+  spFolderUrl: '',
+  spFolderName: '',
+  noteWorkstreams: ['General'],
+  notes: [],
+  activeNoteId: null,
+};
+
+const NOTE_TEMPLATE = `
+<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Meeting / Session Notes</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:6px 0 12px;">
+<div><strong>Date:</strong> ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+<div><strong>Attendees:</strong> </div>
+<div><strong>Facilitator:</strong> </div>
+<div><strong>Location / Call Link:</strong> </div>
+<br>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0 4px;">
+<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;">Agenda</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
+<ol><li><br></li><li><br></li><li><br></li></ol>
+<br>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0 4px;">
+<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;">Key Decisions</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
+<ul><li><br></li><li><br></li><li><br></li></ul>
+<br>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0 4px;">
+<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Meeting Minutes</div>
+<table style="width:100%;border-collapse:collapse;font-size:14px;">
+  <thead>
+    <tr>
+      <th style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--th-bg);color:var(--th-text);padding:.5rem .75rem;border:1px solid var(--th-border);text-align:left;width:22%;">Topic</th>
+      <th style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--th-bg);color:var(--th-text);padding:.5rem .75rem;border:1px solid var(--th-border);text-align:left;">Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;color:var(--text-primary);"></td>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;"><ul style="margin:0;padding-left:1.25rem;"><li><br></li></ul></td>
+    </tr>
+    <tr>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;color:var(--text-primary);"></td>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;"><ul style="margin:0;padding-left:1.25rem;"><li><br></li></ul></td>
+    </tr>
+    <tr>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;color:var(--text-primary);"></td>
+      <td style="padding:.5rem .75rem;border:1px solid var(--border);vertical-align:top;"><ul style="margin:0;padding-left:1.25rem;"><li><br></li></ul></td>
+    </tr>
+  </tbody>
+</table>
+<br>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0 4px;">
+<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;">Open Questions / Parking Lot</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
+<ul style="list-style-type:'?  '"><li><br></li><li><br></li></ul>
+<br>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0 4px;">
+<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px;">Next Meeting</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:0 0 8px;">
+<div><strong>Date:</strong> </div>
+<div><strong>Agenda items to carry forward:</strong> </div>`;
+
+// ─── NAV ─────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'notes') renderNotesSidebar();
+}
+
+// ─── MODALS ───────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m && m.id !== 'setup-modal') m.classList.remove('open'); });
+});
+
+// ─── FILE UPLOAD / PARSE ─────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+});
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const sheetName = wb.SheetNames.find(n => n.includes('Step 2'));
+      if (!sheetName) { alert('Could not find "Step 2 - Proposal" sheet.'); return; }
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+      // Extract project start date from row 4 col C (index 3, col 2)
+      let projectStart = null;
+      const startRaw = rows[3] && rows[3][2];
+      if (startRaw instanceof Date) projectStart = startRaw;
+      else if (typeof startRaw === 'number') projectStart = new Date(Math.round((startRaw - 25569) * 86400 * 1000));
+
+      // Extract week dates from row 9 (index 8) cols O onward (index 14+)
+      const weekDates = [];
+      const headerRow = rows[8] || [];
+      for (let c = 14; c < headerRow.length; c++) {
+        const v = headerRow[c];
+        if (!v) break;
+        let d = v instanceof Date ? v : (typeof v === 'number' ? new Date(Math.round((v-25569)*86400*1000)) : null);
+        if (d && !isNaN(d)) weekDates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+        else break;
+      }
+
+      // Fall back: generate weeks from project start if none found
+      if (!weekDates.length && projectStart) {
+        let d = getMondayOf(projectStart);
+        for (let i = 0; i < 52; i++) { weekDates.push(new Date(d)); d = new Date(d.getTime() + 7*86400000); }
+      }
+
+      // Store project start on state for workplan sync
+      if (projectStart) {
+        state.projectStartDate = projectStart.toISOString().slice(0,10);
+        // Only pre-fill phases that have NO start date yet — never overwrite user edits
+        state.phases.forEach(p => {
+          if (!p.start) p.start = state.projectStartDate;
+          if (!p.end)   p.end   = p.start;
+        });
+        renderGantt();
+        renderPhaseBlocks();
+      }
+
+      // Parse members
+      const members = [];
+      for (let i = 9; i < rows.length; i++) {
+        const r = rows[i];
+        const name = r[3]; const level = r[1];
+        if (!name || typeof name !== 'string' || name.trim() === '') continue;
+        if (typeof level !== 'string' && !level) continue;
+        members.push({
+          name: String(name).trim(), level: level ? String(level).trim() : '',
+          workstream: r[2] ? String(r[2]).trim() : '',
+          hrsPerWk: Number(r[4]) || 0, weeks: Number(r[5]) || 0,
+          hourlyCost: Number(r[8]) || 0, hourlyBill: Number(r[9]) || 0,
+          budgetedHrs: Number(r[10]) || 0, totalCost: Number(r[11]) || 0, totalFees: Number(r[12]) || 0,
+          weeklyHours: {}, // key: 'YYYY-MM-DD' → hours
+        });
+      }
+
+      if (!members.length) { alert('No team members found.'); return; }
+
+      state.hourRows = members;
+      state.projectWeeks = weekDates;
+
+      // Set current month to the month containing the first project week (or today)
+      const firstWeek = weekDates[0] || new Date();
+      state.weeklyViewYear = firstWeek.getFullYear();
+      state.weeklyViewMonth = firstWeek.getMonth();
+
+      document.getElementById('upload-area').style.display = 'none';
+      document.getElementById('file-info').style.display = 'block';
+      document.getElementById('file-name').textContent = file.name;
+      document.getElementById('file-meta').textContent = `${members.length} team members · ${weekDates.length} project weeks · ${(file.size/1024).toFixed(0)} KB`;
+
+      renderHours(); updateHoursSummary(); renderWeeklyLog(); renderWeeklyRollup();
+
+      const wsList = [...new Set(members.map(m => m.workstream).filter(Boolean))];
+      wsList.forEach(w => { if (!state.workstreams.includes(w)) state.workstreams.push(w); if (!state.noteWorkstreams.includes(w)) state.noteWorkstreams.push(w); });
+
+    } catch(err) { alert('Error reading file: ' + err.message + '\n' + err.stack); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function getMondayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay(); // 0=Sun
+  const diff = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function fmtDate(d) { return d.toISOString().slice(0,10); }
+function fmtWeekLabel(d) { return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function fmtMonthYear(y,m) { return new Date(y,m,1).toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+
+function clearFile() {
+  state.hourRows = []; state.projectWeeks = [];
+  document.getElementById('upload-area').style.display = 'block';
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  renderHours(); updateHoursSummary(); renderWeeklyLog(); renderWeeklyRollup();
+}
+
+// ─── HOURS SUB-TABS ──────────────────────────────────
+function switchHoursTab(tab, btn) {
+  document.querySelectorAll('.hours-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('hours-tab-overview').style.display = tab === 'overview' ? '' : 'none';
+  document.getElementById('hours-tab-inputs').style.display   = tab === 'inputs'   ? '' : 'none';
+  document.getElementById('hours-tab-weekly').style.display   = tab === 'weekly'   ? '' : 'none';
+  if (tab === 'overview') renderOverview();
+}
+
+// ─── OVERVIEW RENDER ─────────────────────────────────
+function renderOverview() {
+  const rows = state.hourRows;
+
+  // Totals
+  const totalBudgetHrs  = rows.reduce((s,r) => s + r.budgetedHrs, 0);
+  const totalLoggedHrs  = rows.reduce((s,r) => s + Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0), 0);
+  const totalBudgetCost = rows.reduce((s,r) => s + r.totalCost, 0);
+  const loggedCost      = rows.reduce((s,r) => {
+    const hrs = Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0);
+    return s + hrs * r.hourlyCost;
+  }, 0);
+  const remainingHrs    = totalBudgetHrs - totalLoggedHrs;
+  const remainingCost   = totalBudgetCost - loggedCost;
+  const costPct         = totalBudgetCost ? Math.min(Math.round(loggedCost / totalBudgetCost * 100), 100) : 0;
+  const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+
+  // Stat tiles
+  document.getElementById('ov-budget-hrs').textContent    = totalBudgetHrs ? totalBudgetHrs.toLocaleString() : '—';
+  document.getElementById('ov-logged-hrs').textContent    = totalBudgetHrs ? totalLoggedHrs.toLocaleString() : '—';
+  document.getElementById('ov-remaining-hrs').textContent = totalBudgetHrs ? (remainingHrs < 0 ? '(' + Math.abs(remainingHrs) + ')' : remainingHrs.toLocaleString()) : '—';
+  document.getElementById('ov-remaining-cost').textContent = totalBudgetCost ? (remainingCost < 0 ? '(' + fmt(Math.abs(remainingCost)) + ')' : fmt(remainingCost)) : '—';
+
+  const remHrsEl = document.getElementById('ov-remaining-hrs');
+  if (totalBudgetHrs) remHrsEl.className = 'stat-value ' + (remainingHrs < 0 ? 'stat-bad' : remainingHrs < totalBudgetHrs * 0.15 ? 'stat-warn' : '');
+
+  // Donut
+  const circumference = 2 * Math.PI * 80; // 502.65
+  const arc = document.getElementById('donut-arc');
+  const filled = circumference * (costPct / 100);
+  arc.setAttribute('stroke-dasharray', `${filled} ${circumference - filled}`);
+  arc.setAttribute('stroke', costPct >= 100 ? 'var(--rose)' : costPct >= 85 ? 'var(--amber)' : 'var(--accent)');
+  document.getElementById('donut-pct').textContent    = totalBudgetCost ? costPct + '%' : '—';
+  document.getElementById('donut-burned').textContent = fmt(loggedCost);
+  document.getElementById('donut-budget').textContent = fmt(totalBudgetCost);
+
+  // Role breakdown — group by level
+  const roleMap = {};
+  rows.forEach(r => {
+    const key = r.level || 'Unassigned';
+    if (!roleMap[key]) roleMap[key] = { budgetedHrs: 0, loggedHrs: 0 };
+    roleMap[key].budgetedHrs += r.budgetedHrs;
+    roleMap[key].loggedHrs   += Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0);
+  });
+
+  const roleEl = document.getElementById('role-breakdown');
+  if (!Object.keys(roleMap).length) {
+    roleEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;font-style:italic;">Upload a margin model to see role breakdown.</div>';
+    return;
+  }
+
+  roleEl.innerHTML = Object.entries(roleMap).map(([role, data]) => {
+    const pct = data.budgetedHrs ? Math.min(Math.round(data.loggedHrs / data.budgetedHrs * 100), 100) : 0;
+    const barCls = pct >= 100 ? 'over' : pct >= 85 ? 'warn' : '';
+    return `<div style="margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.3rem;">
+        <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:500;color:var(--text-primary);">${role}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);">${data.loggedHrs.toLocaleString()} / ${data.budgetedHrs.toLocaleString()} hrs &nbsp;·&nbsp; <span style="color:${pct>=100?'var(--rose)':pct>=85?'var(--amber)':'var(--accent)'};">${pct}%</span></div>
+      </div>
+      <div class="progress-wrap" style="height:8px;">
+        <div class="progress-bar ${barCls}" style="width:${pct}%;height:8px;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+
+// ─── OVERVIEW TAB ─────────────────────────────────────
+function addResourceRow() {
+  state.hourRows.push({ name: 'New Resource', level: '', workstream: '', hrsPerWk: 0, weeks: 0, hourlyCost: 0, hourlyBill: 0, budgetedHrs: 0, totalCost: 0, totalFees: 0, weeklyHours: {} });
+  renderHours(); updateHoursSummary();
+}
+
+function removeResourceRow(i) {
+  state.hourRows.splice(i, 1);
+  renderHours(); updateHoursSummary(); renderWeeklyLog(); renderWeeklyRollup();
+}
+
+function updateField(i, field, val) {
+  const r = state.hourRows[i];
+  const numFields = ['hrsPerWk','weeks','hourlyCost','hourlyBill','budgetedHrs','totalCost','totalFees'];
+  r[field] = numFields.includes(field) ? (+val || 0) : val;
+  updateHoursSummary(); renderWeeklyRollup();
+}
+
+function renderHours() {
+  const container = document.getElementById('hours-rows');
+  const header    = document.getElementById('hours-header');
+  const totals    = document.getElementById('hours-totals');
+  const emptyMsg  = document.getElementById('hours-empty-msg');
+  const addBtn    = document.getElementById('hours-add-btn');
+
+  if (!state.hourRows.length) {
+    container.innerHTML = ''; header.style.display = 'none'; totals.style.display = 'none';
+    emptyMsg.style.display = '';
+    if (addBtn) addBtn.style.display = '';
+    return;
+  }
+  emptyMsg.style.display = 'none'; header.style.display = 'grid'; totals.style.display = 'grid';
+  if (addBtn) addBtn.style.display = '';
+
+  const ei = s => s.replace(/"/g,'&quot;'); // escape for attribute values
+
+  container.innerHTML = state.hourRows.map((r, i) => {
+    const totalLogged = Object.values(r.weeklyHours).reduce((s,v)=>s+(+v||0),0);
+    const pct = r.budgetedHrs ? Math.min(Math.round(totalLogged / r.budgetedHrs * 100), 100) : 0;
+    const barCls = pct >= 100 ? 'over' : pct >= 85 ? 'warn' : '';
+    return `<div class="hours-row" style="grid-template-columns:2fr 1.2fr 0.8fr 0.8fr 1fr 1fr 1fr 1fr 160px 36px;">
+      <div class="hours-cell">
+        <input class="ov-input" value="${ei(r.name)}" placeholder="Name"
+          onchange="updateField(${i},'name',this.value)" style="font-weight:500;width:100%;">
+        <input class="ov-input" value="${ei(r.workstream)}" placeholder="Workstream"
+          onchange="updateField(${i},'workstream',this.value)" style="font-size:11px;color:var(--text-muted);margin-top:2px;width:100%;">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input" value="${ei(r.level)}" placeholder="Level"
+          onchange="updateField(${i},'level',this.value)" style="width:100%;">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.hrsPerWk||''}" placeholder="0"
+          onchange="updateField(${i},'hrsPerWk',this.value)">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.weeks||''}" placeholder="0"
+          onchange="updateField(${i},'weeks',this.value)">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.budgetedHrs||''}" placeholder="0"
+          onchange="updateField(${i},'budgetedHrs',this.value)">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.hourlyCost||''}" placeholder="0"
+          onchange="updateField(${i},'hourlyCost',this.value)">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.totalCost||''}" placeholder="0"
+          onchange="updateField(${i},'totalCost',this.value)">
+      </div>
+      <div class="hours-cell">
+        <input class="ov-input ov-num" type="number" value="${r.totalFees||''}" placeholder="0"
+          onchange="updateField(${i},'totalFees',this.value)" style="color:var(--accent);">
+      </div>
+      <div class="hours-cell" style="padding-right:.5rem;">
+        <div style="display:flex;flex-direction:column;gap:.3rem;">
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text-primary);">${totalLogged.toLocaleString()}</span>
+            <span style="font-size:11px;color:var(--text-muted);">/ ${r.budgetedHrs} hrs</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.4rem;">
+            <div class="progress-wrap" style="flex:1;margin-top:0;"><div class="progress-bar ${barCls}" style="width:${pct}%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);min-width:28px;">${pct}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="hours-cell" style="padding:0;display:flex;align-items:center;justify-content:center;">
+        <button onclick="removeResourceRow(${i})" title="Remove" style="background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer;padding:4px 6px;border-radius:4px;transition:color .15s;" onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateHoursSummary();
+}
+
+function updateHoursSummary() {
+  const rows = state.hourRows;
+  const totalBudget = rows.reduce((s,r) => s + r.budgetedHrs, 0);
+  const totalLogged = rows.reduce((s,r) => s + Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0), 0);
+  const totalCost   = rows.reduce((s,r) => s + r.totalCost, 0);
+  const totalFees   = rows.reduce((s,r) => s + r.totalFees, 0);
+  const pct = totalBudget ? Math.round(totalLogged / totalBudget * 100) : 0;
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setText('tot-budget-hrs', totalBudget ? totalBudget.toLocaleString() : '');
+  setText('tot-cost',       totalCost   ? '$' + totalCost.toLocaleString() : '');
+  setText('tot-fees',       totalFees   ? '$' + totalFees.toLocaleString() : '');
+
+  const bar = document.getElementById('tot-progress-bar');
+  if (bar) { bar.style.width = pct + '%'; bar.className = 'progress-bar ' + (pct>=100?'over':pct>=85?'warn':''); }
+  setText('tot-pct', pct + '%');
+
+  // Keep overview live
+  renderOverview();
+  queueSave();
+}
+
+// ─── WEEKLY LOG TAB ───────────────────────────────────
+function changeWeeklyMonth(delta) {
+  state.weeklyViewMonth += delta;
+  if (state.weeklyViewMonth > 11) { state.weeklyViewMonth = 0; state.weeklyViewYear++; }
+  if (state.weeklyViewMonth < 0)  { state.weeklyViewMonth = 11; state.weeklyViewYear--; }
+  renderWeeklyLog();
+}
+
+function getWeeksForMonth(year, month) {
+  // Return project weeks whose Monday falls within this calendar month
+  return (state.projectWeeks || []).filter(d => d.getFullYear() === year && d.getMonth() === month);
+}
+
+function renderWeeklyLog() {
+  const label = document.getElementById('weekly-month-label');
+  const grid  = document.getElementById('weekly-grid');
+
+  if (!state.hourRows || !state.hourRows.length) {
+    label && (label.textContent = '');
+    grid && (grid.innerHTML = '<div style="padding:2rem;color:var(--text-muted);font-style:italic;text-align:center;">Upload a margin model to enable weekly logging.</div>');
+    return;
+  }
+
+  const y = state.weeklyViewYear, m = state.weeklyViewMonth;
+  label.textContent = fmtMonthYear(y, m);
+  const weeks = getWeeksForMonth(y, m);
+
+  if (!weeks.length) {
+    grid.innerHTML = '<div style="padding:2rem;color:var(--text-muted);font-style:italic;text-align:center;">No project weeks fall in this month.</div>';
+    return;
+  }
+
+  const members = state.hourRows;
+
+  let html = `<table class="wg-table">
+    <thead><tr>
+      <th class="name-col">Resource</th>
+      ${weeks.map(w=>`<th>${fmtWeekLabel(w)}</th>`).join('')}
+      <th>Month Total</th>
+    </tr></thead>
+    <tbody>`;
+
+  members.forEach((r, ri) => {
+    const monthTotal = weeks.reduce((s,w) => s + (+( r.weeklyHours[fmtDate(w)] || 0)), 0);
+    html += `<tr>
+      <td class="name-col"><div class="wg-name">${r.name}</div><div class="wg-sub">${r.level}</div></td>
+      ${weeks.map(w => {
+        const key = fmtDate(w);
+        const val = r.weeklyHours[key] || '';
+        return `<td><input class="wg-input" type="number" min="0" max="80" placeholder="0" value="${val}"
+          onchange="logWeekHours(${ri},'${key}',this.value)"></td>`;
+      }).join('')}
+      <td><span class="wg-row-total">${monthTotal || '—'}</span></td>
+    </tr>`;
+  });
+
+  // Footer: column totals
+  html += `<tr class="wg-footer">
+    <td class="name-col">Week Total</td>
+    ${weeks.map(w => {
+      const key = fmtDate(w);
+      const tot = members.reduce((s,r)=>s+(+(r.weeklyHours[key]||0)),0);
+      return `<td><span class="wg-week-total">${tot||'—'}</span></td>`;
+    }).join('')}
+    <td><span class="wg-week-total">${members.reduce((s,r)=>s+weeks.reduce((a,w)=>a+(+(r.weeklyHours[fmtDate(w)]||0)),0),0)||'—'}</span></td>
+  </tr>`;
+
+  html += '</tbody></table>';
+  grid.innerHTML = html;
+}
+
+function logWeekHours(ri, dateKey, val) {
+  const hrs = Math.max(0, +val || 0);
+  if (hrs === 0) delete state.hourRows[ri].weeklyHours[dateKey];
+  else state.hourRows[ri].weeklyHours[dateKey] = hrs;
+  renderWeeklyLog();
+  renderWeeklyRollup();
+  renderHours();
+  updateHoursSummary();
+}
+
+function renderWeeklyRollup() {
+  const el = document.getElementById('weekly-rollup');
+  if (!el) return;
+
+  if (!state.hourRows || !state.hourRows.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:13px;">No data loaded.</div>';
+    return;
+  }
+
+  const members = state.hourRows;
+  const totalBudget = members.reduce((s,r)=>s+r.budgetedHrs,0);
+  const totalLogged  = members.reduce((s,r)=>s+Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0),0);
+
+  let html = `<table class="ru-table">
+    <thead><tr>
+      <th>Resource</th><th>Level</th><th>Workstream</th>
+      <th class="right">Budgeted Hrs</th>
+      <th class="right">Logged Hrs</th>
+      <th class="right">Remaining</th>
+      <th>Progress</th>
+    </tr></thead>
+    <tbody>`;
+
+  members.forEach(r => {
+    const logged = Object.values(r.weeklyHours).reduce((s,v)=>s+(+v||0),0);
+    const rem = r.budgetedHrs - logged;
+    const pct = r.budgetedHrs ? Math.min(Math.round(logged/r.budgetedHrs*100),100) : 0;
+    const barCls = pct>=100?'over':pct>=85?'warn':'';
+    const remColor = rem < 0 ? 'color:var(--rose);' : rem < r.budgetedHrs*0.15 ? 'color:var(--amber);' : 'color:var(--text-secondary);';
+    html += `<tr>
+      <td style="font-weight:500;">${r.name}</td>
+      <td style="color:var(--text-secondary);font-size:12px;">${r.level}</td>
+      <td style="color:var(--text-secondary);font-size:12px;">${r.workstream||'—'}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;">${r.budgetedHrs.toLocaleString()}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--accent);">${logged.toLocaleString()}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;${remColor}">${rem<0?'('+Math.abs(rem)+')':rem.toLocaleString()}</td>
+      <td style="min-width:140px;">
+        <div style="display:flex;align-items:center;gap:.4rem;">
+          <div class="progress-wrap" style="flex:1;margin-top:0;"><div class="progress-bar ${barCls}" style="width:${pct}%;"></div></div>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);min-width:32px;">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  const totLogged2 = members.reduce((s,r)=>s+Object.values(r.weeklyHours).reduce((a,v)=>a+(+v||0),0),0);
+  const totRem = totalBudget - totLogged2;
+  const totPct = totalBudget ? Math.min(Math.round(totLogged2/totalBudget*100),100) : 0;
+  html += `</tbody><tfoot><tr class="ru-footer">
+    <td colspan="3">Project Total</td>
+    <td style="text-align:right;">${totalBudget.toLocaleString()}</td>
+    <td style="text-align:right;">${totLogged2.toLocaleString()}</td>
+    <td style="text-align:right;${totRem<0?'color:var(--rose);':''}">${totRem<0?'('+Math.abs(totRem)+')':totRem.toLocaleString()}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:.4rem;">
+        <div class="progress-wrap" style="flex:1;margin-top:0;"><div class="progress-bar ${totPct>=100?'over':totPct>=85?'warn':''}" style="width:${totPct}%;"></div></div>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;min-width:32px;">${totPct}%</span>
+      </div>
+    </td>
+  </tr></tfoot></table>`;
+
+  el.innerHTML = html;
+}
+
+
+// ─── WORK PLAN ───────────────────────────────────────
+function initWorkPlan() {
+  [
+    { name: 'Discovery & Assessment',   start: '2026-02-02', end: '2026-03-13', status: 'Complete', color: '' },
+    { name: 'Design & Planning',        start: '2026-03-16', end: '2026-04-24', status: 'Active',   color: 'phase2' },
+    { name: 'Implementation',           start: '2026-04-27', end: '2026-08-14', status: 'Upcoming', color: 'phase3' },
+    { name: 'Stabilization & Closeout', start: '2026-08-17', end: '2026-09-25', status: 'Upcoming', color: 'phase4' },
+  ].forEach(p => state.phases.push({ ...p, milestones: [] }));
+  renderGantt();
+  renderPhaseBlocks();
+}
+
+function renderGantt() {
+  const tbody = document.getElementById('gantt-body');
+
+  // ── Timeline window: start = project start, end = start + 60 days (minimum)
+  const projectStart = state.projectStartDate ? new Date(state.projectStartDate) : new Date('2026-02-02');
+  const minEnd = new Date(projectStart.getTime() + 60 * 86400000);
+
+  // Enforce end >= start on all phases silently
+  state.phases.forEach(p => {
+    if (p.start && p.end && p.end < p.start) p.end = p.start;
+  });
+
+  // Overall project end is max of all phase ends, but at least start+60
+  const ends = state.phases.map(p => p.end ? new Date(p.end) : null).filter(Boolean);
+  const lastEnd = ends.length ? new Date(Math.max(...ends)) : minEnd;
+  const viewEnd = lastEnd > minEnd ? lastEnd : minEnd;
+  const totalDays = Math.max((viewEnd - projectStart) / 86400000, 1);
+
+  // ── Month header labels
+  const monthHeader = document.getElementById('gantt-month-header');
+  if (monthHeader) {
+    let strip = '<div class="gantt-month-strip">';
+    let cursor = new Date(projectStart.getFullYear(), projectStart.getMonth(), 1);
+    while (cursor <= viewEnd) {
+      const monthStart = cursor < projectStart ? projectStart : cursor;
+      const nextMonth  = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      const monthEnd   = nextMonth > viewEnd ? viewEnd : nextMonth;
+      const leftPct    = ((monthStart - projectStart) / 86400000 / totalDays * 100).toFixed(2);
+      const widthPct   = ((monthEnd   - monthStart)   / 86400000 / totalDays * 100).toFixed(2);
+      const label      = cursor.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      strip += `<div class="gantt-month-label" style="left:${leftPct}%;width:${widthPct}%;">${label}</div>`;
+      cursor = nextMonth;
+    }
+    strip += '</div>';
+    monthHeader.innerHTML = strip;
+  }
+
+  // ── Phase rows
+  tbody.innerHTML = state.phases.map((p, i) => {
+    const start = p.start ? new Date(p.start) : projectStart;
+    const end   = p.end   ? new Date(p.end)   : start;
+
+    // Bars are NOT clamped — always show full phase length
+    const offsetPct = Math.max(0, ((start - projectStart) / 86400000 / totalDays * 100)).toFixed(1);
+    const widthPct  = Math.max(0.3, ((end - start) / 86400000 / totalDays * 100)).toFixed(1);
+    const badgeCls  = { Complete:'badge-green', Active:'badge-sky', Upcoming:'badge-gray' }[p.status] || 'badge-gray';
+
+    // Milestone markers — show all that are within the visible window
+    const markerHtml = (p.milestones || []).map(m => {
+      if (!m.date) return '';
+      const mDate = new Date(m.date);
+      if (mDate < projectStart || mDate > viewEnd) return '';
+      const mPct = ((mDate - projectStart) / 86400000 / totalDays * 100).toFixed(1);
+      return `<div class="gantt-marker" style="left:${mPct}%;">
+        <div class="gantt-tooltip">${(m.title || m.text || 'Milestone').replace(/</g,'&lt;')}</div>
+        <div class="gantt-marker-dot"></div>
+      </div>`;
+    }).join('');
+
+    return `<tr>
+      <td style="color:var(--text-primary);">
+        <input style="background:none;border:none;color:var(--text-primary);font-family:'Syne',sans-serif;font-size:13px;font-weight:500;width:100%;outline:none;"
+          value="${p.name.replace(/"/g,'&quot;')}"
+          onblur="state.phases[${i}].name=this.value;renderGantt();renderPhaseBlocks();">
+      </td>
+      <td>
+        <input type="date" value="${p.start}" style="background:none;border:none;color:var(--text-secondary);font-size:13px;outline:none;color-scheme:dark;"
+          onblur="enforcePhaseDate(${i},'start',this.value)">
+      </td>
+      <td>
+        <input type="date" value="${p.end}" style="background:none;border:none;color:var(--text-secondary);font-size:13px;outline:none;color-scheme:dark;"
+          onblur="enforcePhaseDate(${i},'end',this.value)">
+      </td>
+      <td>
+        <select style="background:none;border:none;color:var(--text-secondary);font-family:'Syne',sans-serif;font-size:12px;outline:none;cursor:pointer;"
+          onchange="state.phases[${i}].status=this.value;renderGantt();renderPhaseBlocks();">
+          <option value="Complete"  ${p.status==='Complete' ?'selected':''}>Complete</option>
+          <option value="Active"    ${p.status==='Active'   ?'selected':''}>Active</option>
+          <option value="Upcoming"  ${p.status==='Upcoming' ?'selected':''}>Upcoming</option>
+        </select>
+      </td>
+      <td class="gantt-bar-cell" style="padding-right:36px;">
+        <div class="gantt-bar ${p.color}" style="left:${offsetPct}%;width:${widthPct}%;"></div>
+        ${markerHtml}
+        <button onclick="deletePhase(${i})" title="Delete phase"
+          style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .15s;"
+          onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Enforce end >= start when either date changes — syncs both Gantt and phase blocks
+function enforcePhaseDate(i, field, val) {
+  state.phases[i][field] = val;
+  const p = state.phases[i];
+  if (p.start && p.end && p.end < p.start) {
+    if (field === 'end')   p.end   = p.start;
+    if (field === 'start') p.start = p.end;
+  }
+  renderGantt();
+  renderPhaseBlocks();
+  queueSave();
+}
+
+function addPhase() {
+  const start = state.projectStartDate || '';
+  state.phases.push({ name: 'New Phase', start, end: start, status: 'Upcoming', color: '', milestones: [] });
+  renderGantt(); renderPhaseBlocks(); queueSave();
+}
+
+function deletePhase(i) {
+  if (!confirm(`Delete phase "${state.phases[i].name}"?`)) return;
+  state.phases.splice(i, 1);
+  renderGantt(); renderPhaseBlocks();
+}
+
+function renderPhaseBlocks() {
+  // Only fill in dates that are completely empty - never overwrite user edits
+  const defaultStart = state.projectStartDate || '';
+  state.phases.forEach(p => {
+    if (!p.start && defaultStart) p.start = defaultStart;
+    if (!p.end && p.start) p.end = p.start;
+  });
+
+  const c = document.getElementById('phase-blocks');
+  c.innerHTML = state.phases.map((p, i) => `
+    <div class="phase-block ${i===1?'open':''}" id="pb-${i}">
+      <div class="phase-header" onclick="document.getElementById('pb-${i}').classList.toggle('open')">
+        <div class="phase-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="phase-name">${p.name}</div>
+        <div class="phase-dates">${p.start} → ${p.end}</div>
+        <span class="badge ${{ Complete:'badge-green', Active:'badge-sky', Upcoming:'badge-gray' }[p.status]||'badge-gray'}">${p.status}</span>
+        <div class="phase-toggle">▾</div>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deletePhase(${i});" style="margin-left:.5rem;">Delete</button>
+      </div>
+      <div class="phase-body">
+        <div id="milestones-${i}"></div>
+        <button class="btn btn-accent" style="margin-top:.5rem;" onclick="openMilestoneModal(${i})">+ Add Milestone</button>
+      </div>
+    </div>`).join('');
+  state.phases.forEach((_,i) => renderMilestones(i));
+  // Keep task workstream dropdown in sync with phases
+  populateWorkstreamDropdowns();
+}
+
+function renderMilestones(i) {
+  const c = document.getElementById('milestones-' + i);
+  if (!c) return;
+  const ms = state.phases[i].milestones || [];
+  const p  = state.phases[i];
+  if (!ms.length) {
+    c.innerHTML = '<div style="color:var(--text-muted);font-size:13px;font-style:italic;padding:.5rem 0;">No milestones yet — click + Add Milestone.</div>';
+    return;
+  }
+  const rows = ms.map((m, j) => {
+    if (!Array.isArray(m.subtasks)) m.subtasks = [];
+    const mDate  = m.date  ? new Date(m.date)  : null;
+    const pStart = p.start ? new Date(p.start) : null;
+    const pEnd   = p.end   ? new Date(p.end)   : null;
+    const outside = mDate && ((pStart && mDate < pStart) || (pEnd && mDate > pEnd));
+    const dateColor  = outside ? 'var(--amber)' : 'var(--text-secondary)';
+    const warningIcon = outside ? ' <span title="Outside phase date range" style="font-size:11px;">⚠️</span>' : '';
+    const doneCount  = m.subtasks.filter(s => s.done).length;
+    const totalCount = m.subtasks.length;
+
+    const subtaskRows = m.subtasks.map((s, k) => `
+      <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .5rem .3rem 2rem;">
+        <input type="checkbox" class="task-check" ${s.done ? 'checked' : ''}
+          onchange="state.phases[${i}].milestones[${j}].subtasks[${k}].done=this.checked;renderMilestones(${i});">
+        <span style="font-size:13px;color:var(--text-secondary);${s.done ? 'text-decoration:line-through;opacity:.6;' : ''};flex:1;">${s.title}</span>
+        <button onclick="state.phases[${i}].milestones[${j}].subtasks.splice(${k},1);renderMilestones(${i});"
+          style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:1px 4px;border-radius:3px;transition:color .15s;"
+          onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+      </div>`).join('');
+
+    const subtaskSection = `
+      <div style="border-top:1px solid var(--border);margin-top:.3rem;padding-top:.3rem;">
+        ${subtaskRows}
+        <div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .5rem .3rem 2rem;">
+          <input type="text" placeholder="Add sub-task…"
+            style="background:none;border:none;border-bottom:1px solid var(--border);color:var(--text-primary);font-family:'Literata',serif;font-size:12px;padding:2px 4px;outline:none;flex:1;transition:border-color .15s;"
+            onfocus="this.style.borderBottomColor='var(--accent)'" onblur="this.style.borderBottomColor='var(--border)'"
+            onkeydown="if(event.key==='Enter'&&this.value.trim()){addSubtask(${i},${j},this.value.trim());this.value='';event.preventDefault();}">
+          <span style="font-size:11px;color:var(--text-muted);">↵ to add</span>
+        </div>
+      </div>`;
+
+    const progressBit = totalCount > 0
+      ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);margin-left:.4rem;">${doneCount}/${totalCount}</span>`
+      : '';
+
+    return `<div style="border-bottom:1px solid var(--border);padding:.5rem 0;">
+      <div style="display:grid;grid-template-columns:24px 1fr 1.2fr 1fr 80px;gap:.75rem;align-items:center;padding:.25rem .5rem;border-radius:var(--radius);transition:background .15s;" onmouseover="this.style.background='var(--surface-hover)'" onmouseout="this.style.background=''">
+        <div class="milestone-dot ${m.done ? 'done' : ''}"></div>
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text-primary);">${m.title || '—'}${progressBit}</div>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);">${m.text || '—'}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${dateColor};display:flex;align-items:center;gap:.3rem;">${m.date || '—'}${warningIcon}</div>
+        <div style="display:flex;gap:.25rem;align-items:center;">
+          <input type="checkbox" class="task-check" ${m.done ? 'checked' : ''} onchange="state.phases[${i}].milestones[${j}].done=this.checked;renderMilestones(${i});renderGantt();" title="Mark complete">
+          <button class="btn btn-sm" onclick="openMilestoneModal(${i},${j})" title="Edit" style="padding:2px 6px;font-size:12px;">✎</button>
+          <button class="btn btn-sm btn-danger" onclick="state.phases[${i}].milestones.splice(${j},1);renderMilestones(${i});renderGantt();">✕</button>
+        </div>
+      </div>
+      ${subtaskSection}
+    </div>`;
+  }).join('');
+
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:24px 1fr 1.2fr 1fr 80px;gap:.75rem;padding:.4rem .5rem;margin-bottom:.25rem;">
+      <span></span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--th-text);">Title</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--th-text);">Description</span>
+      <span style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--th-text);">Target Date</span>
+      <span></span>
+    </div>${rows}`;
+}
+
+function addSubtask(phaseIdx, milestoneIdx, title) {
+  const m = state.phases[phaseIdx].milestones[milestoneIdx];
+  if (!Array.isArray(m.subtasks)) m.subtasks = [];
+  m.subtasks.push({ title, done: false });
+  renderMilestones(phaseIdx);
+}
+
+// Milestone modal state
+let _milestonePhaseIdx = null;
+let _milestoneEditIdx  = null;
+
+function openMilestoneModal(phaseIdx, editIdx = null) {
+  _milestonePhaseIdx = phaseIdx;
+  _milestoneEditIdx  = editIdx;
+  const phaseName = state.phases[phaseIdx]?.name || 'Phase';
+  if (editIdx !== null) {
+    const m = state.phases[phaseIdx].milestones[editIdx];
+    document.getElementById('milestone-modal-title').textContent = `Edit Milestone — ${phaseName}`;
+    document.getElementById('mm-title').value = m.title || '';
+    document.getElementById('mm-desc').value  = m.text  || '';
+    document.getElementById('mm-date').value  = m.date  || '';
+  } else {
+    document.getElementById('milestone-modal-title').textContent = `Add Milestone — ${phaseName}`;
+    document.getElementById('mm-title').value = '';
+    document.getElementById('mm-desc').value  = '';
+    document.getElementById('mm-date').value  = '';
+  }
+  document.getElementById('mm-warning').style.display = 'none';
+  openModal('milestone-modal');
+  if (editIdx !== null) checkMilestoneDate();
+}
+
+function checkMilestoneDate() {
+  const date    = document.getElementById('mm-date').value;
+  const warning = document.getElementById('mm-warning');
+  if (!date || _milestonePhaseIdx == null) { warning.style.display = 'none'; return; }
+  const p      = state.phases[_milestonePhaseIdx];
+  const mDate  = new Date(date);
+  const pStart = p.start ? new Date(p.start) : null;
+  const pEnd   = p.end   ? new Date(p.end)   : null;
+  const outside = (pStart && mDate < pStart) || (pEnd && mDate > pEnd);
+  warning.style.display = outside ? '' : 'none';
+}
+
+function saveMilestone() {
+  const title = document.getElementById('mm-title').value.trim();
+  if (!title) return alert('Milestone title is required.');
+  const desc = document.getElementById('mm-desc').value.trim();
+  const date = document.getElementById('mm-date').value;
+  const i    = _milestonePhaseIdx;
+  if (i == null || !state.phases[i]) return;
+  if (!state.phases[i].milestones) state.phases[i].milestones = [];
+  if (_milestoneEditIdx !== null) {
+    const m = state.phases[i].milestones[_milestoneEditIdx];
+    m.title = title; m.text = desc; m.date = date;
+  } else {
+    state.phases[i].milestones.push({ title, text: desc, date, done: false });
+  }
+  closeModal('milestone-modal');
+  renderMilestones(i);
+  renderGantt();
+  queueSave();
+}
+
+// ─── TASKS ───────────────────────────────────────────
+function openTaskModal() { populateWorkstreamDropdowns(); openModal('task-modal'); }
+
+function saveTask() {
+  const name = document.getElementById('tm-name').value.trim();
+  if (!name) return alert('Task name required.');
+  const task = {
+    id: Date.now(),
+    name,
+    ws: document.getElementById('tm-ws').value,
+    owner: document.getElementById('tm-owner').value,
+    due: document.getElementById('tm-due').value,
+    urgent: document.getElementById('tm-urgent').checked,
+    notes: document.getElementById('tm-notes').value,
+    done: false,
+    linkedNoteId: null,   // null = standalone
+    linkedWsIdx: null,
+    linkedAiIdx: null,
+  };
+  state.tasks.push(task);
+  ['tm-name','tm-owner','tm-due','tm-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tm-urgent').checked = false;
+  closeModal('task-modal'); renderTasks(); updateTaskSummary(); queueSave();
+}
+
+function renderTasks(filtered) {
+  const list = document.getElementById('task-list');
+  const tasks = filtered ?? state.tasks;
+  const today = new Date().toISOString().slice(0,10);
+  if (!tasks.length) { list.innerHTML = '<div style="padding:1.5rem;color:var(--text-muted);font-style:italic;text-align:center;">No tasks yet.</div>'; return; }
+  list.innerHTML = tasks.map(t => {
+    const overdue = !t.done && t.due && t.due < today;
+    const linked  = t.linkedNoteId != null;
+    return `<div class="task-row ${t.done?'done':''}">
+      <input type="checkbox" class="task-check" ${t.done?'checked':''} onchange="toggleTask(${t.id})">
+      <div>
+        <div class="task-name">${t.name}</div>
+        ${t.notes?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${t.notes}</div>`:''}
+        ${linked?`<div style="font-size:11px;color:var(--lavender);margin-top:2px;">🔗 Linked to internal note</div>`:''}
+      </div>
+      <div><span class="badge badge-gray">${t.ws||'—'}</span></div>
+      <div style="font-size:13px;color:var(--text-secondary);">${t.owner||'—'}</div>
+      <div style="font-size:13px;${overdue?'color:var(--rose);':''}">${t.due||'—'}</div>
+      <div style="display:flex;align-items:center;gap:.4rem;">
+        ${t.urgent?`<span class="badge badge-rose">Urgent</span>`:`<span style="font-size:11px;color:var(--text-muted);">—</span>`}
+        <button class="btn btn-sm btn-danger" onclick="removeTask(${t.id})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateTaskSummary(); populateOwnerFilter();
+}
+
+function toggleTask(id) {
+  const t = state.tasks.find(t=>t.id===id); if (!t) return;
+  t.done = !t.done;
+  // Two-way sync: if linked to an internal note action item, update it there too
+  if (t.linkedNoteId != null) {
+    const note = state.internalNotes.find(n=>n.id===t.linkedNoteId);
+    if (note && note.workstreams[t.linkedWsIdx] && note.workstreams[t.linkedWsIdx].actionItems[t.linkedAiIdx] != null) {
+      note.workstreams[t.linkedWsIdx].actionItems[t.linkedAiIdx].done = t.done;
+      // If internal note is currently open, re-render it
+      if (state.activeInternalNoteId === t.linkedNoteId) openInternalNote(t.linkedNoteId);
+    }
+  }
+  renderTasks();
+}
+
+function removeTask(id) {
+  const t = state.tasks.find(t=>t.id===id);
+  // If linked, also remove from the internal note action items
+  if (t && t.linkedNoteId != null) {
+    const note = state.internalNotes.find(n=>n.id===t.linkedNoteId);
+    if (note && note.workstreams[t.linkedWsIdx]) {
+      note.workstreams[t.linkedWsIdx].actionItems.splice(t.linkedAiIdx, 1);
+      // Re-index any other tasks linked to later action items in this ws
+      state.tasks.forEach(tk => {
+        if (tk.linkedNoteId === t.linkedNoteId && tk.linkedWsIdx === t.linkedWsIdx && tk.linkedAiIdx > t.linkedAiIdx) {
+          tk.linkedAiIdx--;
+        }
+      });
+      if (state.activeInternalNoteId === t.linkedNoteId) openInternalNote(t.linkedNoteId);
+    }
+  }
+  state.tasks = state.tasks.filter(tk=>tk.id!==id);
+  renderTasks(); updateTaskSummary();
+}
+
+// ── ACTION ITEMS (linked from internal notes) ──────────
+function addActionItem(noteId, wsIdx) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  const ws = note.workstreams[wsIdx];
+  // Ensure actionItems is an array
+  if (!Array.isArray(ws.actionItems)) ws.actionItems = [];
+  const aiIdx = ws.actionItems.length;
+  ws.actionItems.push({ task: '', owner: '', due: '', urgent: false, done: false });
+
+  // Create linked task
+  const taskId = Date.now() + aiIdx;
+  state.tasks.push({
+    id: taskId,
+    name: '',
+    ws: ws.name,
+    owner: '',
+    due: '',
+    urgent: false,
+    notes: '',
+    done: false,
+    linkedNoteId: noteId,
+    linkedWsIdx: wsIdx,
+    linkedAiIdx: aiIdx,
+  });
+  ws.actionItems[aiIdx].taskId = taskId;
+  openInternalNote(noteId);
+}
+
+function updateActionItem(noteId, wsIdx, aiIdx, field, val) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  const ai = note.workstreams[wsIdx].actionItems[aiIdx];
+  ai[field] = field === 'urgent' ? val : val;
+  note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  // Sync to linked task
+  const task = state.tasks.find(t=>t.id===ai.taskId);
+  if (task) {
+    if (field === 'task')   task.name   = val;
+    if (field === 'owner')  task.owner  = val;
+    if (field === 'due')    task.due    = val;
+    if (field === 'urgent') task.urgent = val;
+    renderTasks();
+  }
+}
+
+function toggleActionItem(noteId, wsIdx, aiIdx) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  const ai = note.workstreams[wsIdx].actionItems[aiIdx];
+  ai.done = !ai.done;
+  note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  // Sync to task
+  const task = state.tasks.find(t=>t.id===ai.taskId);
+  if (task) { task.done = ai.done; renderTasks(); }
+  openInternalNote(noteId);
+}
+
+function removeActionItem(noteId, wsIdx, aiIdx) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  const ai = note.workstreams[wsIdx].actionItems[aiIdx];
+  // Remove linked task
+  state.tasks = state.tasks.filter(t=>t.id!==ai.taskId);
+  // Re-index remaining linked tasks in this ws
+  state.tasks.forEach(t => {
+    if (t.linkedNoteId===noteId && t.linkedWsIdx===wsIdx && t.linkedAiIdx>aiIdx) t.linkedAiIdx--;
+  });
+  note.workstreams[wsIdx].actionItems.splice(aiIdx, 1);
+  renderTasks(); updateTaskSummary();
+  openInternalNote(noteId);
+}
+
+function updateTaskSummary() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('t-total').textContent = state.tasks.length;
+  document.getElementById('t-done').textContent = state.tasks.filter(t=>t.done).length;
+  document.getElementById('t-open').textContent = state.tasks.filter(t=>!t.done).length;
+  document.getElementById('t-overdue').textContent = state.tasks.filter(t=>!t.done&&t.due&&t.due<today).length;
+}
+
+function filterTasks() {
+  const search = document.getElementById('task-search').value.toLowerCase();
+  const owner = document.getElementById('task-filter-owner').value;
+  const status = document.getElementById('task-filter-status').value;
+  const today = new Date().toISOString().slice(0,10);
+  renderTasks(state.tasks.filter(t => {
+    if (search && !t.name.toLowerCase().includes(search)) return false;
+    if (owner && t.owner !== owner) return false;
+    if (status === 'done' && !t.done) return false;
+    if (status === 'open' && t.done) return false;
+    if (status === 'overdue' && (t.done||!t.due||t.due>=today)) return false;
+    return true;
+  }));
+}
+
+function populateOwnerFilter() {
+  const sel = document.getElementById('task-filter-owner');
+  const cur = sel.value;
+  const owners = [...new Set(state.tasks.map(t=>t.owner).filter(Boolean))];
+  sel.innerHTML = '<option value="">All owners</option>' + owners.map(o=>`<option ${o===cur?'selected':''}>${o}</option>`).join('');
+}
+
+// ─── CONTRACTS ───────────────────────────────────────
+// ─── FILES / SHAREPOINT ──────────────────────────────
+// ─── FILES / SHAREPOINT ──────────────────────────────
+function switchContractsTab(tab, btn) {
+  document.querySelectorAll('#contracts .hours-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('contracts-tab-sharepoint').style.display    = tab === 'sharepoint'    ? '' : 'none';
+  document.getElementById('contracts-tab-businesscases').style.display = tab === 'businesscases' ? '' : 'none';
+}
+
+function openAddFileModal() {
+  ['af-name','af-url','af-category'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('af-type').value = 'xlsx';
+  openModal('add-file-modal');
+}
+
+function saveFileLink() {
+  const name     = document.getElementById('af-name').value.trim();
+  const url      = document.getElementById('af-url').value.trim();
+  if (!name || !url) return alert('File name and URL are both required.');
+  const type     = document.getElementById('af-type').value;
+  const category = document.getElementById('af-category').value.trim();
+  const now      = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  state.trackedFiles = state.trackedFiles || [];
+  state.trackedFiles.push({ id: Date.now(), name, url, type, category, addedAt: now });
+  closeModal('add-file-modal');
+  renderTrackedFiles();
+}
+
+function renderTrackedFiles() {
+  const el = document.getElementById('sp-file-list');
+  const files = state.trackedFiles || [];
+  if (!files.length) {
+    el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-style:italic;font-size:13px;">No files tracked yet — click + Add File Link to paste a SharePoint link.</div>';
+    return;
+  }
+  const iconMap = { xlsx:'📊', docx:'📝', pptx:'📊', pdf:'📄', folder:'📁', other:'📄' };
+  el.innerHTML = files.map((f, i) => `
+    <div class="sp-row">
+      <span style="font-size:20px;flex-shrink:0;">${iconMap[f.type]||'📄'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${f.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+          ${f.category ? `<span class="badge badge-gray" style="margin-right:.4rem;">${f.category}</span>` : ''}
+          Added ${f.addedAt}
+        </div>
+      </div>
+      <a href="${f.url}" target="_blank" style="text-decoration:none;flex-shrink:0;">
+        <button class="btn btn-sm" style="color:var(--accent);border-color:var(--accent);">↗ Open</button>
+      </a>
+      <button class="btn btn-sm btn-danger" onclick="removeTrackedFile(${f.id})" style="flex-shrink:0;">✕</button>
+    </div>`).join('');
+}
+
+function removeTrackedFile(id) {
+  state.trackedFiles = (state.trackedFiles || []).filter(f => f.id !== id);
+  renderTrackedFiles();
+}
+
+// Stubs for compat
+function renderContracts() {}
+function openContractModal() {}
+function saveContract() {}
+
+
+
+// ─── BUSINESS CASES ──────────────────────────────────
+const bcDrop = document.getElementById('bc-drop-zone');
+if (bcDrop) {
+  bcDrop.addEventListener('dragover', e => { e.preventDefault(); bcDrop.classList.add('drag-over'); });
+  bcDrop.addEventListener('dragleave', () => bcDrop.classList.remove('drag-over'));
+  bcDrop.addEventListener('drop', e => {
+    e.preventDefault(); bcDrop.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') handleBusinessCaseUpload(f);
+  });
+}
+
+function handleBusinessCaseUpload(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const dataUrl = e.target.result;
+    const now = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+
+    // Extract text from PDF using iframe + text layer isn't possible directly,
+    // so we parse the raw binary for readable strings (best-effort for simple PDFs)
+    const extracted = extractFromPdfBinary(e.target.result);
+
+    const bc = {
+      id: Date.now(),
+      name: file.name.replace(/\.pdf$/i, ''),
+      fileName: file.name,
+      dataUrl,
+      extractedValue: extracted.value,
+      extractedDates: extracted.dates,
+      uploadedAt: now,
+    };
+    state.businessCases.unshift(bc);
+    renderBusinessCases();
+  };
+  reader.readAsDataURL(file);
+}
+
+function extractFromPdfBinary(dataUrl) {
+  // Decode base64 to string and search for dollar amounts and dates
+  try {
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+
+    // Find dollar amounts: $X,XXX,XXX or $X.XM / $XM etc.
+    const dollarMatches = [];
+    const dollarRe = /\$\s*[\d,]+(?:\.\d+)?(?:\s*[MmKkBb])?|\b[\d,]+(?:\.\d+)?\s*(?:million|billion|thousand)\b/gi;
+    let dm;
+    while ((dm = dollarRe.exec(binary)) !== null) {
+      const v = dm[0].trim();
+      if (v.length < 30) dollarMatches.push(v);
+    }
+    // Deduplicate and take top 3 largest-looking values
+    const uniqueVals = [...new Set(dollarMatches)].slice(0, 5);
+
+    // Find dates: MM/DD/YYYY, Month DD YYYY, YYYY-MM-DD
+    const dateMatches = [];
+    const dateRe = /\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|\d{4}[\/\-]\d{2}[\/\-]\d{2})\b/gi;
+    let dm2;
+    while ((dm2 = dateRe.exec(binary)) !== null) {
+      const v = dm2[0].trim();
+      if (v.length < 25) dateMatches.push(v);
+    }
+    const uniqueDates = [...new Set(dateMatches)].slice(0, 6);
+
+    return {
+      value: uniqueVals.length ? uniqueVals.join(' · ') : 'Not detected',
+      dates: uniqueDates.length ? uniqueDates.join(' · ') : 'Not detected',
+    };
+  } catch(e) {
+    return { value: 'Could not parse', dates: 'Could not parse' };
+  }
+}
+
+function renderBusinessCases() {
+  const el = document.getElementById('bc-list');
+  if (!state.businessCases.length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-style:italic;">No business cases uploaded yet.</div>';
+    return;
+  }
+  el.innerHTML = state.businessCases.map((bc, i) => `
+    <div class="contract-card" style="margin-bottom:1rem;">
+      <div class="contract-header">
+        <div style="font-size:20px;flex-shrink:0;">📄</div>
+        <div style="flex:1;">
+          <div class="contract-name">${bc.name}</div>
+          <div class="contract-date">Uploaded ${bc.uploadedAt} · ${bc.fileName}</div>
+        </div>
+        <button class="btn btn-accent" onclick="openBcViewer(${bc.id})">View</button>
+        <button class="btn btn-sm btn-danger" onclick="removeBusinessCase(${bc.id})">Remove</button>
+      </div>
+      <div class="financials-grid" style="margin-top:.75rem;">
+        <div class="fin-cell">
+          <div class="fin-label">💰 Projected Value(s)</div>
+          <div style="font-size:13px;color:var(--accent);margin-top:.25rem;">${bc.extractedValue}</div>
+        </div>
+        <div class="fin-cell" style="grid-column:span 2;">
+          <div class="fin-label">📅 Key Dates Detected</div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-top:.25rem;">${bc.extractedDates}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openBcViewer(id) {
+  const bc = state.businessCases.find(b => b.id === id);
+  if (!bc) return;
+  document.getElementById('bc-viewer-title').textContent = bc.name;
+  document.getElementById('bc-viewer-frame').src = bc.dataUrl;
+  document.getElementById('bc-download-link').href = bc.dataUrl;
+  document.getElementById('bc-download-link').download = bc.fileName;
+
+  // Show extracted info inside modal
+  document.getElementById('bc-viewer-extracted').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:.75rem;">
+      <div class="fin-cell">
+        <div class="fin-label">💰 Projected Value(s)</div>
+        <div style="font-size:13px;color:var(--accent);margin-top:.25rem;">${bc.extractedValue}</div>
+      </div>
+      <div class="fin-cell">
+        <div class="fin-label">📅 Key Dates Detected</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:.25rem;">${bc.extractedDates}</div>
+      </div>
+    </div>`;
+  openModal('bc-viewer-modal');
+}
+
+function removeBusinessCase(id) {
+  if (!confirm('Remove this business case?')) return;
+  state.businessCases = state.businessCases.filter(b => b.id !== id);
+  renderBusinessCases();
+}
+
+
+// State additions for notes sub-tabs
+state.activeClientNoteId   = null;
+state.activeInternalNoteId = null;
+state.activeInternalFreeformId = null;
+state.clientNotes          = [];
+state.internalNotes        = [];
+state.internalFreeformNotes = [];
+state.clientSections       = ['General'];
+state.internalSections     = [];
+
+function switchNotesTab(tab, btn) {
+  document.querySelectorAll('#notes .hours-subtab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('notes-tab-internal').style.display = tab === 'internal' ? '' : 'none';
+  document.getElementById('notes-tab-client').style.display   = tab === 'client'   ? '' : 'none';
+}
+
+// ── CLIENT NOTES ─────────────────────────────────────
+function openNewNoteModal() {
+  document.getElementById('nm-ws').innerHTML = state.clientSections.map(w=>`<option>${w}</option>`).join('');
+  document.getElementById('nm-title').value = '';
+  document.getElementById('nm-transcript').value = '';
+  openModal('note-modal');
+}
+
+function openNewWorkstreamModal() { openModal('ws-modal'); }
+
+function saveWorkstream() {
+  const name = document.getElementById('wsm-name').value.trim(); if (!name) return;
+  if (!state.clientSections.includes(name)) state.clientSections.push(name);
+  // Also sync to noteWorkstreams for backward compat
+  if (!state.noteWorkstreams.includes(name)) state.noteWorkstreams.push(name);
+  document.getElementById('wsm-name').value = '';
+  closeModal('ws-modal'); renderClientSidebar();
+}
+
+function plainToHtml(text) {
+  return text
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .split('\n')
+    .map(line => `<div>${line || '<br>'}</div>`)
+    .join('');
+}
+
+function saveNote() {
+  const title      = document.getElementById('nm-title').value.trim() || 'Untitled Note';
+  const ws         = document.getElementById('nm-ws').value;
+  const transcript = document.getElementById('nm-transcript').value.trim();
+  const body       = transcript ? plainToHtml(transcript) : NOTE_TEMPLATE;
+  const now        = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const note = { id: Date.now(), title, ws, body, created: now, modified: now, actionItems: [] };
+  state.clientNotes.unshift(note);
+  document.getElementById('nm-title').value = '';
+  document.getElementById('nm-transcript').value = '';
+  closeModal('note-modal'); renderClientSidebar(); openClientNote(note.id); queueSave();
+}
+
+function renderClientSidebar() {
+  const sb = document.getElementById('notes-sidebar-client');
+  sb.innerHTML = state.clientSections.map(ws => {
+    const wsNotes = state.clientNotes.filter(n=>n.ws===ws);
+    return `<div class="ws-group">
+      <div class="ws-group-label">${ws}</div>
+      <div class="ws-group-notes">
+        ${wsNotes.length
+          ? wsNotes.map(n=>`<button class="note-link ${state.activeClientNoteId===n.id?'active':''}" onclick="openClientNote(${n.id})"><span style="font-size:13px;opacity:.6;">📄</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.title}</span></button>`).join('')
+          : '<div class="note-empty">No notes yet</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RICH TEXT EDITOR ─────────────────────────────────
+// ── CELL-SIZED RTE (for table cells) ─────────────────
+function buildCellRte(uid, body, onSave, placeholder) {
+  return `<div class="cell-rte-wrap">
+    <div class="cell-rte-toolbar">
+      <button class="rte-btn" style="padding:1px 5px;font-size:11px;" onmousedown="event.preventDefault();rteCmd('bold');" title="Bold"><b>B<\/b><\/button>
+      <button class="rte-btn" style="padding:1px 5px;font-size:11px;" onmousedown="event.preventDefault();rteCmd('italic');" title="Italic"><i>I<\/i><\/button>
+      <button class="rte-btn" style="padding:1px 5px;font-size:11px;" onmousedown="event.preventDefault();rteCmd('underline');" title="Underline"><u>U<\/u><\/button>
+      <div class="rte-sep" style="height:14px;"><\/div>
+      <button class="rte-btn" style="padding:1px 5px;font-size:11px;" onmousedown="event.preventDefault();rteCmd('insertUnorderedList');" title="Bullets">•<\/button>
+      <button class="rte-btn" style="padding:1px 5px;font-size:11px;" onmousedown="event.preventDefault();rteCmd('insertOrderedList');" title="Numbers">1.<\/button>
+    <\/div>
+    <div class="cell-rte-body rte-body rte-compact" id="${uid}" contenteditable="true"
+      data-placeholder="${placeholder}"
+      onblur="${onSave}"
+      onkeydown="rteKeyDown(event,'${uid}')"
+      spellcheck="true">${body}<\/div>
+  <\/div>`;
+}
+
+
+function buildRichEditor(noteId, storeKey, body, onSave, compact=false) {
+  const uid = `rte-${noteId}-${storeKey}`;
+  const toolbar = `
+    <div class="rte-toolbar">
+      <select class="rte-select" onchange="rteFont('${uid}',this.value);this.blur();" title="Font">
+        <option value="Literata, serif">Literata</option>
+        <option value="'Syne', sans-serif">Syne</option>
+        <option value="'DM Mono', monospace">Mono</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+      </select>
+      <select class="rte-select" onchange="rteFontSize('${uid}',this.value);this.blur();" title="Font size" style="width:52px;">
+        <option value="12px">12</option>
+        <option value="13px">13</option>
+        <option value="14px" selected>14</option>
+        <option value="16px">16</option>
+        <option value="18px">18</option>
+        <option value="20px">20</option>
+        <option value="24px">24</option>
+        <option value="28px">28</option>
+      </select>
+      <div class="rte-sep"></div>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('bold');" title="Bold"><b>B</b></button>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('italic');" title="Italic"><i>I</i></button>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('underline');" title="Underline"><u>U</u></button>
+      <div class="rte-sep"></div>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('insertUnorderedList');" title="Bullet list">• List</button>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('insertOrderedList');" title="Numbered list">1. List</button>
+      <div class="rte-sep"></div>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('justifyLeft');" title="Align left">⬅ L</button>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('justifyCenter');" title="Align center">≡ C</button>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('justifyRight');" title="Align right">R ➡</button>
+      <div class="rte-sep"></div>
+      <button class="rte-btn" onmousedown="event.preventDefault();rteCmd('removeFormat');" title="Clear formatting" style="font-size:11px;">Clear</button>
+    </div>
+    <div class="rte-body${compact?' rte-compact':''}" id="${uid}" contenteditable="true"
+      data-placeholder="Start writing…"
+      onblur="${onSave}"
+      onkeydown="rteKeyDown(event,'${uid}')"
+      spellcheck="true">${body}</div>`;
+  return `<div class="rte-wrap">${toolbar}</div>`;
+}
+
+function rteCmd(cmd) {
+  document.execCommand(cmd, false, null);
+}
+
+function rteKeyDown(e, uid) {
+  const el = document.getElementById(uid);
+  if (!el) return;
+
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const li = (node.nodeType === 3 ? node.parentElement : node).closest('li');
+    if (li && li.textContent.trim() === '') {
+      // Double-enter on empty li → exit the list
+      e.preventDefault();
+      const list = li.parentElement;
+      li.remove();
+      const div = document.createElement('div');
+      div.innerHTML = '<br>';
+      list.after ? list.after(div) : list.parentNode.insertBefore(div, list.nextSibling);
+      const newRange = document.createRange();
+      newRange.setStart(div, 0);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    }
+    // All other Enter presses (including inside non-empty li) → let browser handle naturally, no execCommand
+    return;
+  }
+
+  if (e.key === 'Enter' && e.shiftKey) {
+    e.preventDefault();
+    // Insert a <br> manually without execCommand
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const br = document.createElement('br');
+    range.insertNode(br);
+    // Move cursor after the br
+    const newRange = document.createRange();
+    newRange.setStartAfter(br);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    return;
+  }
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    // Insert spaces for tab rather than using execCommand indent/outdent
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const spaces = document.createTextNode('\u00a0\u00a0\u00a0\u00a0');
+    range.insertNode(spaces);
+    const newRange = document.createRange();
+    newRange.setStartAfter(spaces);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  }
+}
+
+function rteFont(uid, font) {
+  const el = document.getElementById(uid);
+  if (el) { el.focus(); el.style.fontFamily = font; }
+}
+
+function rteFontSize(uid, size) {
+  const el = document.getElementById(uid);
+  if (el) { el.focus(); el.style.fontSize = size; }
+}
+
+function getRteContent(uid) {
+  const el = document.getElementById(uid);
+  return el ? el.innerHTML : '';
+}
+
+// ── PREMIER RESOURCE CHECK ───────────────────────────
+function isPremierOwner(owner) {
+  if (!owner) return false;
+  const trimmed = owner.trim().toLowerCase();
+  if (trimmed === 'premier' || trimmed === 'premier team') return true;
+  return state.hourRows.some(r => {
+    const full = r.name.trim().toLowerCase();
+    const first = full.split(' ')[0];
+    return full === trimmed || first === trimmed;
+  });
+}
+
+// ── NOTE ACTION ITEMS (client + internal freeform) ────
+function buildNoteAiTable(noteStore, noteId, noteType) {
+  const note = noteStore === 'client'
+    ? state.clientNotes.find(n=>n.id===noteId)
+    : state.internalFreeformNotes.find(n=>n.id===noteId);
+  if (!note) return '';
+  if (!Array.isArray(note.actionItems)) note.actionItems = [];
+
+  const rows = note.actionItems.map((ai, i) => `
+    <tr>
+      <td style="padding:.35rem .5rem;border-bottom:1px solid rgba(157,141,241,0.15);width:55%;">
+        <input class="int-tbl-input" style="width:100%;" placeholder="Task description…"
+          value="${(ai.task||'').replace(/"/g,'&quot;')}"
+          onblur="updateNoteAI('${noteStore}',${noteId},${i},'task',this.value)">
+      </td>
+      <td style="padding:.35rem .5rem;border-bottom:1px solid rgba(157,141,241,0.15);width:13%;">
+        <input class="int-tbl-input" style="width:100%;" placeholder="Owner"
+          value="${(ai.owner||'').replace(/"/g,'&quot;')}"
+          onblur="updateNoteAI('${noteStore}',${noteId},${i},'owner',this.value)">
+      </td>
+      <td style="padding:.35rem .5rem;border-bottom:1px solid rgba(157,141,241,0.15);width:16%;white-space:nowrap;">
+        <input type="date" class="int-tbl-input" style="width:100%;color-scheme:dark;" value="${ai.due||''}"
+          onchange="updateNoteAI('${noteStore}',${noteId},${i},'due',this.value)">
+      </td>
+      <td style="padding:.35rem .5rem;border-bottom:1px solid rgba(157,141,241,0.15);width:8%;text-align:center;">
+        <input type="checkbox" ${ai.urgent?'checked':''} style="accent-color:var(--rose);width:14px;height:14px;cursor:pointer;"
+          onchange="updateNoteAI('${noteStore}',${noteId},${i},'urgent',this.checked)">
+      </td>
+      <td id="sync-cell-${noteStore}-${noteId}-${i}" style="padding:.35rem .5rem;border-bottom:1px solid rgba(157,141,241,0.15);width:8%;text-align:center;white-space:nowrap;">
+        ${isPremierOwner(ai.owner)
+          ? `<span style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.05em;color:var(--accent);text-transform:uppercase;background:var(--accent-muted);padding:2px 7px;border-radius:99px;border:1px solid var(--border-accent);">✓ Synced</span>`
+          : `<span style="font-family:'Syne',sans-serif;font-size:9px;color:var(--text-muted);">—</span>`}
+      </td>
+      <td style="padding:.35rem .4rem;border-bottom:1px solid rgba(157,141,241,0.15);text-align:center;">
+        <button onclick="removeNoteAI('${noteStore}',${noteId},${i})"
+          style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px;transition:color .15s;"
+          onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+    <div style="background:rgba(157,141,241,0.07);border:1px solid rgba(157,141,241,0.3);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem;">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+        <div style="width:3px;height:20px;background:var(--lavender);border-radius:99px;flex-shrink:0;"></div>
+        <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--lavender);">Action Items</div>
+        <div style="flex:1;height:1px;background:rgba(157,141,241,0.2);"></div>
+        <div style="font-size:11px;color:var(--text-muted);font-style:italic;">Premier-assigned items auto-sync to Daily Tasks</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:480px;background:rgba(157,141,241,0.03);border-radius:var(--radius);">
+          <thead>
+            <tr style="background:rgba(157,141,241,0.12);">
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--lavender);padding:.4rem .5rem;font-weight:600;text-align:left;border-bottom:1px solid rgba(157,141,241,0.2);">Task</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--lavender);padding:.4rem .5rem;font-weight:600;text-align:left;border-bottom:1px solid rgba(157,141,241,0.2);">Owner</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--lavender);padding:.4rem .5rem;font-weight:600;text-align:left;border-bottom:1px solid rgba(157,141,241,0.2);">Due Date</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--rose);padding:.4rem .5rem;font-weight:600;text-align:center;border-bottom:1px solid rgba(157,141,241,0.2);" title="Urgent">Urgent</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);padding:.4rem .5rem;font-weight:600;text-align:center;border-bottom:1px solid rgba(157,141,241,0.2);" title="Synced to Daily Tasks">→ Tasks</th>
+              <th style="border-bottom:1px solid rgba(157,141,241,0.2);width:24px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="6" style="padding:.75rem .5rem;color:var(--text-muted);font-size:12px;font-style:italic;">No action items yet — click + Add below</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <button class="add-row" style="margin:.5rem 0 0;font-size:11px;color:var(--lavender);" onclick="addNoteAI('${noteStore}',${noteId})">+ Add Action Item</button>
+    </div>`;
+}
+
+function addNoteAI(noteStore, noteId) {
+  const note = noteStore === 'client'
+    ? state.clientNotes.find(n=>n.id===noteId)
+    : state.internalFreeformNotes.find(n=>n.id===noteId);
+  if (!note) return;
+  if (!Array.isArray(note.actionItems)) note.actionItems = [];
+  note.actionItems.push({ task:'', owner:'', due:'', urgent:false, taskId: null });
+  // Only re-render the table container, not the whole editor
+  refreshNoteAiTable(noteStore, noteId);
+}
+
+function updateNoteAI(noteStore, noteId, idx, field, val) {
+  const note = noteStore === 'client'
+    ? state.clientNotes.find(n=>n.id===noteId)
+    : state.internalFreeformNotes.find(n=>n.id===noteId);
+  if (!note || !note.actionItems[idx]) return;
+  const ai = note.actionItems[idx];
+  const wasPremier = isPremierOwner(ai.owner);
+  ai[field] = val;
+  note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  const isNowPremier = isPremierOwner(ai.owner);
+
+  if (field === 'owner' && isNowPremier && !ai.taskId) {
+    const taskId = Date.now() + idx;
+    state.tasks.push({ id: taskId, name: ai.task, ws: '', owner: ai.owner, due: ai.due, urgent: ai.urgent, notes: '', done: false, linkedNoteId: null, linkedWsIdx: null, linkedAiIdx: null, noteAiRef: { store: noteStore, noteId, idx } });
+    ai.taskId = taskId;
+    renderTasks(); updateTaskSummary();
+    // Update just the sync cell for this row — no full re-render
+    updateSyncCell(noteStore, noteId, idx, true);
+  } else if (field === 'owner' && wasPremier && !isNowPremier && ai.taskId) {
+    state.tasks = state.tasks.filter(t=>t.id!==ai.taskId);
+    ai.taskId = null;
+    renderTasks(); updateTaskSummary();
+    updateSyncCell(noteStore, noteId, idx, false);
+  } else if (ai.taskId) {
+    const task = state.tasks.find(t=>t.id===ai.taskId);
+    if (task) {
+      if (field==='task')   task.name   = val;
+      if (field==='due')    task.due    = val;
+      if (field==='urgent') task.urgent = val;
+      renderTasks();
+    }
+    if (field === 'owner') updateSyncCell(noteStore, noteId, idx, isNowPremier);
+  }
+  // NO re-render for text/date fields — state is already updated above
+}
+
+function updateSyncCell(noteStore, noteId, idx, synced) {
+  const cell = document.getElementById(`sync-cell-${noteStore}-${noteId}-${idx}`);
+  if (!cell) return;
+  cell.innerHTML = synced
+    ? `<span style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.05em;color:var(--accent);text-transform:uppercase;background:var(--accent-muted);padding:2px 7px;border-radius:99px;border:1px solid var(--border-accent);">✓ Synced</span>`
+    : `<span style="font-family:'Syne',sans-serif;font-size:9px;color:var(--text-muted);">—</span>`;
+}
+
+function removeNoteAI(noteStore, noteId, idx) {
+  const note = noteStore === 'client'
+    ? state.clientNotes.find(n=>n.id===noteId)
+    : state.internalFreeformNotes.find(n=>n.id===noteId);
+  if (!note || !note.actionItems[idx]) return;
+  const ai = note.actionItems[idx];
+  if (ai.taskId) { state.tasks = state.tasks.filter(t=>t.id!==ai.taskId); renderTasks(); updateTaskSummary(); }
+  note.actionItems.splice(idx, 1);
+  refreshNoteAiTable(noteStore, noteId);
+}
+
+function refreshNoteAiTable(noteStore, noteId) {
+  const containerId = `note-ai-table-${noteStore}-${noteId}`;
+  const el = document.getElementById(containerId);
+  if (el) {
+    el.innerHTML = buildNoteAiTable(noteStore, noteId);
+  } else {
+    // Container not found — full re-open as fallback only
+    if (noteStore === 'client') openClientNote(noteId);
+    else openInternalFreeformNote(noteId);
+  }
+}
+
+function refreshNoteEditor(noteStore, noteId) {
+  if (noteStore === 'client') openClientNote(noteId);
+  else openInternalFreeformNote(noteId);
+}
+
+function openClientNote(id) {
+  const note = state.clientNotes.find(n=>n.id===id); if (!note) return;
+  state.activeClientNoteId = id;
+  const editor = document.getElementById('note-editor-client');
+  const rte = buildRichEditor(id, 'client', note.body,
+    `updateClientNoteField(${id},'body',getRteContent('rte-${id}-client'))`);
+  editor.innerHTML = `
+    <div class="note-editor-header">
+      <input class="note-title-input" value="${note.title.replace(/"/g,'&quot;')}" placeholder="Note title…"
+        onblur="updateClientNoteField(${id},'title',this.value);renderClientSidebar();"
+        oninput="updateClientNoteField(${id},'title',this.value)">
+      <div class="note-meta">Created ${note.created} · Modified ${note.modified}</div>
+      <button class="btn btn-sm btn-danger" onclick="deleteClientNote(${id})">Delete</button>
+    </div>
+    <div id="note-ai-table-client-${id}">${buildNoteAiTable('client', id)}</div>
+    ${rte}`;
+  renderClientSidebar();
+}
+
+function updateClientNoteField(id, field, val) {
+  const note = state.clientNotes.find(n=>n.id===id);
+  if (note) { note[field]=val; note.modified=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  _lastTypedAt = Date.now();
+  queueSave();
+}
+
+function deleteClientNote(id) {
+  if (!confirm('Delete this note?')) return;
+  state.clientNotes = state.clientNotes.filter(n=>n.id!==id);
+  state.activeClientNoteId = null;
+  document.getElementById('note-editor-client').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-style:italic;font-size:14px;">Select a note or create a new one</div>';
+  renderClientSidebar();
+}
+
+// ── INTERNAL NOTES ────────────────────────────────────
+function openNewInternalNoteModal() {
+  // Default to current Monday
+  const today = new Date();
+  const day = today.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today); monday.setDate(today.getDate() + diff);
+  document.getElementById('inm-date').value = monday.toISOString().slice(0,10);
+  openModal('internal-note-modal');
+}
+
+function saveInternalNote() {
+  const dateVal = document.getElementById('inm-date').value;
+  if (!dateVal) return alert('Please select a week.');
+  const d = new Date(dateVal + 'T12:00:00');
+  const label = d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const now = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  // Build workstreams from state.phases
+  const workstreams = state.phases.length
+    ? state.phases.map(p => p.name)
+    : ['General'];
+
+  const note = {
+    id: Date.now(),
+    weekOf: dateVal,
+    weekLabel: label,
+    created: now,
+    modified: now,
+    generalNotes: '',
+    workstreams: workstreams.map(ws => ({
+      name: ws,
+      notes: '',
+      goals: '',
+      actionItems: [],
+    })),
+    meetings: [], // [{name, date, time, agenda}]
+  };
+
+  state.internalNotes.unshift(note);
+  closeModal('internal-note-modal');
+  renderInternalSidebar();
+  openInternalNote(note.id);
+  queueSave();
+}
+
+function renderInternalSidebar() {
+  const sb = document.getElementById('notes-sidebar-internal');
+  let html = '';
+
+  // Weekly Touchpoints group (always shown)
+  html += `<div class="ws-group">
+    <div class="ws-group-label">Weekly Touchpoints</div>
+    <div class="ws-group-notes">
+      ${state.internalNotes.length
+        ? state.internalNotes.map(n=>`
+            <button class="note-link ${state.activeInternalNoteId===n.id && state.activeInternalFreeformId===null ?'active':''}" onclick="openInternalNote(${n.id})">
+              <span style="font-size:13px;opacity:.6;">📅</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Week of ${n.weekLabel}</span>
+            </button>`).join('')
+        : '<div class="note-empty">No touchpoints yet</div>'}
+    </div>
+  </div>`;
+
+  // Freeform internal sections
+  state.internalSections.forEach(section => {
+    const sectionNotes = state.internalFreeformNotes.filter(n=>n.section===section);
+    html += `<div class="ws-group">
+      <div class="ws-group-label">${section}</div>
+      <div class="ws-group-notes">
+        ${sectionNotes.length
+          ? sectionNotes.map(n=>`
+              <button class="note-link ${state.activeInternalFreeformId===n.id?'active':''}" onclick="openInternalFreeformNote(${n.id})">
+                <span style="font-size:13px;opacity:.6;">📄</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.title}</span>
+              </button>`).join('')
+          : '<div class="note-empty">No notes yet</div>'}
+      </div>
+    </div>`;
+  });
+
+  sb.innerHTML = html;
+}
+
+// ── INTERNAL FREEFORM NOTES ───────────────────────────
+function openNewInternalFreeformModal() {
+  if (!state.internalSections.length) {
+    alert('Please create a section first using "+ New Section".');
+    return;
+  }
+  document.getElementById('ifm-section').innerHTML = state.internalSections.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('ifm-title').value = '';
+  document.getElementById('ifm-transcript').value = '';
+  openModal('internal-freeform-modal');
+}
+
+function openNewInternalSectionModal() { openModal('internal-section-modal'); }
+
+function saveInternalSection() {
+  const name = document.getElementById('ism-name').value.trim(); if (!name) return;
+  if (!state.internalSections.includes(name)) state.internalSections.push(name);
+  document.getElementById('ism-name').value = '';
+  closeModal('internal-section-modal');
+  renderInternalSidebar();
+}
+
+function saveInternalFreeformNote() {
+  const title      = document.getElementById('ifm-title').value.trim() || 'Untitled Note';
+  const section    = document.getElementById('ifm-section').value;
+  const transcript = document.getElementById('ifm-transcript').value.trim();
+  const body       = transcript ? plainToHtml(transcript) : NOTE_TEMPLATE;
+  const now        = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const note       = { id: Date.now(), title, section, body, created: now, modified: now, actionItems: [] };
+  state.internalFreeformNotes.unshift(note);
+  document.getElementById('ifm-title').value = '';
+  document.getElementById('ifm-transcript').value = '';
+  closeModal('internal-freeform-modal');
+  renderInternalSidebar();
+  openInternalFreeformNote(note.id);
+}
+
+function openInternalFreeformNote(id) {
+  const note = state.internalFreeformNotes.find(n=>n.id===id); if (!note) return;
+  state.activeInternalFreeformId = id;
+  state.activeInternalNoteId = null;
+  const editor = document.getElementById('note-editor-internal');
+  const rte = buildRichEditor(id, 'internal', note.body,
+    `updateInternalFreeformField(${id},'body',getRteContent('rte-${id}-internal'))`);
+  editor.innerHTML = `
+    <div class="note-editor-header">
+      <input class="note-title-input" value="${note.title.replace(/"/g,'&quot;')}" placeholder="Note title…"
+        onblur="updateInternalFreeformField(${id},'title',this.value);renderInternalSidebar();"
+        oninput="updateInternalFreeformField(${id},'title',this.value)">
+      <div class="note-meta">Created ${note.created} · Modified ${note.modified}</div>
+      <button class="btn btn-sm btn-danger" onclick="deleteInternalFreeformNote(${id})">Delete</button>
+    </div>
+    <div id="note-ai-table-internalFreeform-${id}">${buildNoteAiTable('internalFreeform', id)}</div>
+    ${rte}`;
+  renderInternalSidebar();
+}
+
+function updateInternalFreeformField(id, field, val) {
+  const note = state.internalFreeformNotes.find(n=>n.id===id);
+  if (note) { note[field]=val; note.modified=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  _lastTypedAt = Date.now();
+  queueSave();
+}
+
+function deleteInternalFreeformNote(id) {
+  if (!confirm('Delete this note?')) return;
+  state.internalFreeformNotes = state.internalFreeformNotes.filter(n=>n.id!==id);
+  state.activeInternalFreeformId = null;
+  document.getElementById('note-editor-internal').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-style:italic;font-size:14px;">Select a note or create a new one</div>';
+  renderInternalSidebar();
+}
+
+function openInternalNote(id) {
+  const note = state.internalNotes.find(n=>n.id===id); if (!note) return;
+  state.activeInternalNoteId = id;
+  state.activeInternalFreeformId = null;
+  const editor = document.getElementById('note-editor-internal');
+
+  // ── Workstream table rows
+  const wsRows = note.workstreams.map((ws, wi) => {
+    if (!Array.isArray(ws.actionItems)) ws.actionItems = [];
+    const aiRows = ws.actionItems.map((ai, aii) => `
+      <tr>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);">
+          <input class="int-tbl-input" style="width:100%;min-width:120px;" placeholder="Task description…" value="${(ai.task||'').replace(/"/g,'&quot;')}"
+            oninput="updateActionItem(${id},${wi},${aii},'task',this.value)">
+        </td>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);">
+          <input class="int-tbl-input" placeholder="Owner" value="${(ai.owner||'').replace(/"/g,'&quot;')}"
+            oninput="updateActionItem(${id},${wi},${aii},'owner',this.value)" style="width:80px;">
+        </td>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);white-space:nowrap;">
+          <input type="date" class="int-tbl-input" value="${ai.due||''}"
+            oninput="updateActionItem(${id},${wi},${aii},'due',this.value)" style="width:115px;">
+        </td>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);text-align:center;">
+          <input type="checkbox" ${ai.urgent?'checked':''} style="accent-color:var(--rose);width:14px;height:14px;cursor:pointer;"
+            onchange="updateActionItem(${id},${wi},${aii},'urgent',this.checked)">
+        </td>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);text-align:center;">
+          <input type="checkbox" ${ai.done?'checked':''} style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;"
+            onchange="toggleActionItem(${id},${wi},${aii})">
+        </td>
+        <td style="padding:.3rem .4rem;border-bottom:1px solid var(--border);text-align:center;">
+          <button onclick="removeActionItem(${id},${wi},${aii})"
+            style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px;transition:color .15s;"
+            onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+        </td>
+      </tr>`).join('');
+    return `
+    <tr>
+      <td class="int-tbl-ws">${ws.name}</td>
+      <td class="int-tbl-cell" style="padding:0;min-width:180px;">
+        ${buildCellRte(`ws-${id}-${wi}-notes`, ws.notes||'', `updateInternalWS(${id},${wi},'notes',getRteContent('ws-${id}-${wi}-notes'))`, 'Updates, decisions, progress…')}
+      </td>
+      <td class="int-tbl-cell" style="padding:0;min-width:180px;">
+        ${buildCellRte(`ws-${id}-${wi}-goals`, ws.goals||'', `updateInternalWS(${id},${wi},'goals',getRteContent('ws-${id}-${wi}-goals'))`, 'What should be accomplished this week?')}
+      </td>
+      <td class="int-tbl-cell" style="padding:0;min-width:360px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--th-bg);">
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--th-text);padding:.3rem .4rem;font-weight:600;text-align:left;border-bottom:1px solid var(--border);">Task</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--th-text);padding:.3rem .4rem;font-weight:600;text-align:left;border-bottom:1px solid var(--border);">Owner</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--th-text);padding:.3rem .4rem;font-weight:600;text-align:left;border-bottom:1px solid var(--border);">Due</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--rose);padding:.3rem .4rem;font-weight:500;text-align:center;border-bottom:1px solid var(--border);" title="Urgent">!</th>
+              <th style="font-family:'Syne',sans-serif;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);padding:.3rem .4rem;font-weight:500;text-align:center;border-bottom:1px solid var(--border);" title="Done">✓</th>
+              <th style="border-bottom:1px solid var(--border);width:24px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${aiRows || `<tr><td colspan="6" style="padding:.5rem .4rem;color:var(--text-muted);font-size:12px;font-style:italic;">No action items yet</td></tr>`}
+          </tbody>
+        </table>
+        <button class="add-row" style="margin:.3rem .5rem;font-size:11px;" onclick="addActionItem(${id},${wi})">+ Add Item</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // ── Meeting table rows
+  const meetingRows = note.meetings.map((m, mi) => `
+    <tr>
+      <td class="int-tbl-cell">
+        <input class="int-tbl-input" placeholder="Meeting name…" value="${(m.name||'').replace(/"/g,'&quot;')}"
+          oninput="updateInternalMeeting(${id},${mi},'name',this.value)">
+      </td>
+      <td class="int-tbl-cell" style="white-space:nowrap;">
+        <input type="date" class="int-tbl-input" value="${m.date||''}"
+          oninput="updateInternalMeeting(${id},${mi},'date',this.value)">
+      </td>
+      <td class="int-tbl-cell" style="white-space:nowrap;">
+        <input type="time" class="int-tbl-input" value="${m.time||''}"
+          oninput="updateInternalMeeting(${id},${mi},'time',this.value)">
+      </td>
+      <td class="int-tbl-cell">
+        <textarea class="int-tbl-textarea" placeholder="1. …&#10;2. …&#10;3. …"
+          oninput="updateInternalMeeting(${id},${mi},'agenda',this.value)">${m.agenda||''}</textarea>
+      </td>
+      <td style="padding:.5rem .4rem;vertical-align:middle;text-align:center;">
+        <button onclick="removeInternalMeeting(${id},${mi})"
+          style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:3px 6px;border-radius:4px;transition:color .15s;"
+          onmouseover="this.style.color='var(--rose)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+      </td>
+    </tr>`).join('');
+
+  if (!note.generalNotes) note.generalNotes = '';
+  const generalNotesRte = buildRichEditor(id, 'internal-general', note.generalNotes,
+    `updateInternalNoteField(${id},'generalNotes',getRteContent('rte-${id}-internal-general'))`, true);
+
+  editor.innerHTML = `
+    <div class="note-editor-header">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:600;color:var(--text-primary);">Week of ${note.weekLabel}</div>
+        <div class="note-meta" style="margin-top:3px;">Created ${note.created} · Modified ${note.modified}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteInternalNote(${id})">Delete</button>
+    </div>
+
+    <div style="overflow-y:auto;flex:1;padding-right:2px;">
+
+      <!-- General Notes -->
+      <div style="margin-bottom:2rem;">
+        <div class="int-section-title">General Notes</div>
+        ${generalNotesRte}
+      </div>
+
+      <!-- Workstream updates table -->
+      <div style="margin-bottom:2rem;">
+        <div class="int-section-title">Workstream Updates</div>
+        <div style="overflow-x:auto;">
+          <table class="int-table">
+            <thead>
+              <tr>
+                <th class="int-th" style="width:140px;">Workstream</th>
+                <th class="int-th">Notes / Updates</th>
+                <th class="int-th">Goals for the Week</th>
+                <th class="int-th">Action Items</th>
+              </tr>
+            </thead>
+            <tbody>${wsRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Meetings this week table -->
+      <div>
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem;">
+          <div class="int-section-title" style="margin:0;">Meetings This Week</div>
+          <button class="add-row" style="margin:0;" onclick="addInternalMeeting(${id})">+ Add Meeting</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="int-table">
+            <thead>
+              <tr>
+                <th class="int-th">Meeting</th>
+                <th class="int-th" style="width:130px;">Date</th>
+                <th class="int-th" style="width:110px;">Time</th>
+                <th class="int-th">Proposed Agenda</th>
+                <th class="int-th" style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="meetings-tbody-${id}">
+              ${meetingRows || `<tr><td colspan="5" style="padding:1rem;color:var(--text-muted);font-style:italic;font-size:13px;text-align:center;">No meetings added yet — click + Add Meeting</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>`;
+
+  renderInternalSidebar();
+}
+
+function updateInternalNoteField(noteId, field, val) {
+  const note = state.internalNotes.find(n=>n.id===noteId);
+  if (note) { note[field] = val; note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  _lastTypedAt = Date.now();
+  queueSave();
+}
+
+function updateInternalWS(noteId, wi, field, val) {
+  const note = state.internalNotes.find(n=>n.id===noteId);
+  if (note) { note.workstreams[wi][field] = val; note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+}
+
+function addInternalMeeting(noteId) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  note.meetings.push({ name: '', date: '', time: '', agenda: '' });
+  openInternalNote(noteId);
+}
+
+function removeInternalMeeting(noteId, mi) {
+  const note = state.internalNotes.find(n=>n.id===noteId); if (!note) return;
+  note.meetings.splice(mi, 1);
+  openInternalNote(noteId);
+}
+
+function updateInternalMeeting(noteId, mi, field, val) {
+  const note = state.internalNotes.find(n=>n.id===noteId);
+  if (note) { note.meetings[mi][field] = val; note.modified = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+}
+
+function deleteInternalNote(id) {
+  if (!confirm('Delete this touchpoint?')) return;
+  state.internalNotes = state.internalNotes.filter(n=>n.id!==id);
+  state.activeInternalNoteId = null;
+  document.getElementById('note-editor-internal').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-style:italic;font-size:14px;">Select a note or create a new one</div>';
+  renderInternalSidebar();
+}
+
+// Legacy alias kept for backward compat
+function renderNotesSidebar() { renderClientSidebar(); renderInternalSidebar(); }
+function openNote(id) { openClientNote(id); }
+function updateNoteField(id, f, v) { updateClientNoteField(id, f, v); }
+function deleteNote(id) { deleteClientNote(id); }
+
+// ─── SHARED ───────────────────────────────────────────
+function getWorkstreams() {
+  // Always derive from phases so it stays in sync with the workplan
+  const fromPhases = state.phases.map(p => p.name).filter(Boolean);
+  // Also include any manually added workstreams
+  const manual = (state.workstreams || []).filter(w => w && !fromPhases.includes(w));
+  return [...fromPhases, ...manual];
+}
+
+function populateWorkstreamDropdowns() {
+  const el = document.getElementById('tm-ws');
+  const ws = getWorkstreams();
+  if (el) el.innerHTML = ['', ...ws].map(w=>`<option value="${w}">${w||'— None —'}</option>`).join('');
+}
+
+// ─── SUPABASE ─────────────────────────────────────────
+const SUPA_URL = 'https://xepevugogcbcppkbnbnd.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlcGV2dWdvZ2NiY3Bwa2JuYm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwOTQ0MzcsImV4cCI6MjA5NjY3MDQzN30.xKr_Rhu4DBRAmr2s6AaY5WxLfIuGrY8lFhIoSuAiwyQ';
+let db = null;
+
+function getDb() {
+  if (db) return db;
+  // The unpkg UMD build exposes window.supabase as an object with createClient
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+      return db;
+    }
+    // Some builds expose it differently
+    if (window.Supabase && typeof window.Supabase.createClient === 'function') {
+      db = window.Supabase.createClient(SUPA_URL, SUPA_KEY);
+      return db;
+    }
+    console.warn('Supabase not loaded yet. window.supabase =', window.supabase);
+  } catch(e) {
+    console.error('getDb error:', e);
+  }
+  return null;
+}
+
+let currentProjectId = null;
+let syncInterval    = null;
+
+// ── SETUP MODAL HELPERS ───────────────────────────────
+function setupSwitchTab(tab) {
+  const isCreate = tab === 'create';
+  document.getElementById('setup-create-form').style.display = isCreate ? '' : 'none';
+  document.getElementById('setup-join-form').style.display   = isCreate ? 'none' : '';
+  document.getElementById('setup-tab-create').style.background = isCreate ? 'var(--accent)' : 'var(--navy)';
+  document.getElementById('setup-tab-create').style.color    = isCreate ? 'var(--navy)' : 'var(--text-muted)';
+  document.getElementById('setup-tab-join').style.background = isCreate ? 'var(--navy)' : 'var(--accent)';
+  document.getElementById('setup-tab-join').style.color      = isCreate ? 'var(--text-muted)' : 'var(--navy)';
+}
+
+function setupShowLoading(show) {
+  ['setup-create-form','setup-join-form'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = show ? '0.4' : '1';
+  });
+  document.getElementById('setup-loading').style.display = show ? '' : 'none';
+}
+
+async function dbCreateProject() {
+  const name     = document.getElementById('setup-project-name').value.trim();
+  const client   = document.getElementById('setup-client').value.trim();
+  const password = document.getElementById('setup-password-create').value.trim();
+  const spUrl    = document.getElementById('setup-sharepoint-url').value.trim();
+  const spName   = document.getElementById('setup-sharepoint-name').value.trim();
+  const mmFile   = document.getElementById('setup-margin-model').files[0];
+  const errEl    = document.getElementById('setup-create-error');
+
+  if (!name)     { errEl.textContent = 'Project name is required.'; errEl.style.display=''; return; }
+  if (!password) { errEl.textContent = 'Please set a password so coworkers can join.'; errEl.style.display=''; return; }
+  if (!getDb())  { errEl.textContent = 'Database connection failed — please refresh the page and try again.'; errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+
+  setupShowLoading(true);
+  try {
+    // Hash password simply (not cryptographic — just obfuscation)
+    const pwHash = btoa(password + ':pcc2026');
+
+    // Check if project name already exists
+    const { data: existing } = await getDb().from('projects').select('id').eq('name', name).single();
+    if (existing) {
+      setupShowLoading(false);
+      errEl.textContent = 'A project with that name already exists. Use "Join Existing Project" instead.';
+      errEl.style.display = '';
+      return;
+    }
+
+    // Create initial state snapshot
+    const snapshot = JSON.stringify(buildStateSnapshot());
+
+    const { data, error } = await getDb().from('projects').insert({
+      name,
+      client,
+      password_hash: pwHash,
+      sp_url:  spUrl  || null,
+      sp_name: spName || null,
+      state:   snapshot,
+    }).select().single();
+
+    if (error) throw error;
+    currentProjectId = data.id;
+    localStorage.setItem('pcc_project_id',   currentProjectId);
+    localStorage.setItem('pcc_project_name', name);
+    localStorage.setItem('pcc_pw_hash',      pwHash);
+
+    applyProjectMeta(name, client, spUrl, spName);
+    closeSetup(false);
+    startSync();
+    // Process margin model last, after state is established and saved
+    if (mmFile) setTimeout(() => handleFile(mmFile), 500);
+  } catch(e) {
+    setupShowLoading(false);
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = '';
+  }
+}
+
+async function dbJoinProject() {
+  const name     = document.getElementById('setup-join-name').value.trim();
+  const password = document.getElementById('setup-password-join').value.trim();
+  const errEl    = document.getElementById('setup-join-error');
+
+  if (!name || !password) { errEl.textContent = 'Both fields are required.'; errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+  setupShowLoading(true);
+
+  try {
+    const pwHash = btoa(password + ':pcc2026');
+    const { data, error } = await getDb().from('projects').select('*').eq('name', name).eq('password_hash', pwHash).single();
+    if (error || !data) {
+      setupShowLoading(false);
+      errEl.textContent = 'Project not found or incorrect password.';
+      errEl.style.display = '';
+      return;
+    }
+
+    currentProjectId = data.id;
+    localStorage.setItem('pcc_project_id',   currentProjectId);
+    localStorage.setItem('pcc_project_name', name);
+    localStorage.setItem('pcc_pw_hash',      pwHash);
+
+    // Load saved state
+    if (data.state) applyStateSnapshot(JSON.parse(data.state));
+    applyProjectMeta(data.name, data.client, data.sp_url, data.sp_name);
+    closeSetup(false);
+    startSync();
+  } catch(e) {
+    setupShowLoading(false);
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = '';
+  }
+}
+
+// ── SYNC ──────────────────────────────────────────────
+let _lastSavedAt = null;
+let _isSaving    = false;
+
+function buildStateSnapshot() {
+  return {
+    hourRows:             state.hourRows,
+    projectWeeks:         state.projectWeeks.map(d => d instanceof Date ? d.toISOString() : d),
+    projectStartDate:     state.projectStartDate,
+    phases:               state.phases,
+    tasks:                state.tasks,
+    contracts:            state.contracts,
+    businessCases:        state.businessCases.map(bc => ({ ...bc, dataUrl: undefined })),
+    trackedFiles:         state.trackedFiles,
+    noteWorkstreams:      state.noteWorkstreams,
+    clientSections:       state.clientSections,
+    clientNotes:          state.clientNotes,
+    internalNotes:        state.internalNotes,
+    internalFreeformNotes:state.internalFreeformNotes,
+    internalSections:     state.internalSections,
+    workstreams:          state.workstreams,
+    spFolderUrl:          state.spFolderUrl,
+    spFolderName:         state.spFolderName,
+  };
+}
+
+function applyStateSnapshot(snap) {
+  if (!snap) return;
+  const merge = (key, def) => { if (snap[key] !== undefined) state[key] = snap[key]; else if (def !== undefined) state[key] = def; };
+  merge('hourRows', []);
+  merge('projectStartDate', null);
+  merge('phases', []);
+  merge('tasks', []);
+  merge('contracts', []);
+  merge('businessCases', []);
+  merge('trackedFiles', []);
+  merge('noteWorkstreams', ['General']);
+  merge('clientSections', ['General']);
+  merge('clientNotes', []);
+  merge('internalNotes', []);
+  merge('internalFreeformNotes', []);
+  merge('internalSections', []);
+  merge('workstreams', ['General']);
+  merge('spFolderUrl', '');
+  merge('spFolderName', '');
+  if (snap.projectWeeks) state.projectWeeks = snap.projectWeeks.map(d => new Date(d));
+  if (snap.projectStartDate) {
+    state.weeklyViewYear  = new Date(snap.projectStartDate).getFullYear();
+    state.weeklyViewMonth = new Date(snap.projectStartDate).getMonth();
+  }
+  renderHours(); updateHoursSummary(); renderOverview();
+  renderGantt(); renderPhaseBlocks();
+  renderTasks(); updateTaskSummary();
+  renderBusinessCases(); renderTrackedFiles();
+  renderClientSidebar(); renderInternalSidebar();
+  renderWeeklyLog(); renderWeeklyRollup();
+}
+
+async function dbSave() {
+  if (!currentProjectId || !getDb() || _isSaving) return;
+  _isSaving = true;
+  showSyncStatus('saving');
+  try {
+    const now = new Date().toISOString();
+    const { error } = await getDb().from('projects')
+      .update({ state: JSON.stringify(buildStateSnapshot()), updated_at: now })
+      .eq('id', currentProjectId);
+    if (!error) { _lastSavedAt = now; showSyncStatus('connected'); }
+    else showSyncStatus('error');
+  } catch(e) { console.warn('Save failed:', e.message); showSyncStatus('error'); }
+  finally { _isSaving = false; }
+}
+
+async function dbLoad() {
+  if (!currentProjectId || !getDb() || _isSaving) return;
+  // Never load while user is actively typing (within last 15 seconds)
+  if (Date.now() - _lastTypedAt < 15000) return;
+  // Never load while any input, textarea, or contenteditable is focused
+  const active = document.activeElement;
+  if (active && (
+    active.tagName === 'INPUT' ||
+    active.tagName === 'TEXTAREA' ||
+    active.tagName === 'SELECT' ||
+    active.contentEditable === 'true'
+  )) return;
+  try {
+    const { data } = await getDb().from('projects')
+      .select('state, updated_at').eq('id', currentProjectId).single();
+    if (!data?.state) return;
+    if (_lastSavedAt && data.updated_at <= _lastSavedAt) return;
+    if (_lastSavedAt && (Date.now() - new Date(_lastSavedAt).getTime()) < 8000) return;
+    applyStateSnapshot(JSON.parse(data.state));
+    _lastSavedAt = data.updated_at;
+  } catch(e) { console.warn('Load failed:', e.message); }
+}
+
+function startSync() {
+  dbSave();
+  if (syncInterval) clearInterval(syncInterval);
+  // Poll every 10 seconds — guarded by typing check so it won't interrupt work
+  syncInterval = setInterval(dbLoad, 20000);
+  showSyncStatus('connected');
+}
+
+function showSyncStatus(status) {
+  let dot = document.getElementById('sync-status');
+  if (!dot) {
+    dot = document.createElement('div');
+    dot.id = 'sync-status';
+    dot.style.cssText = "display:flex;align-items:center;gap:.4rem;font-family:'Syne',sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:0 1rem;cursor:pointer;flex-shrink:0;";
+    dot.title = 'Click to force sync';
+    dot.onclick = () => dbSave();
+    document.querySelector('.header').appendChild(dot);
+  }
+  const colors = { connected:'var(--accent)', saving:'var(--amber)', error:'var(--rose)' };
+  const labels = { connected:'● Live', saving:'● Saving…', error:'● Offline' };
+  dot.innerHTML = `<span style="color:${colors[status]};">${labels[status]}</span>`;
+}
+
+// ── AUTO-SAVE HOOK ────────────────────────────────────
+let _saveTimer = null;
+let _lastTypedAt = 0;
+
+function queueSave() {
+  if (!currentProjectId) return;
+  _lastTypedAt = Date.now();
+  showSyncStatus('saving');
+  if (_saveTimer) clearTimeout(_saveTimer);
+  // 2 second debounce — waits until typing stops before saving
+  _saveTimer = setTimeout(() => dbSave(), 5000);
+}
+
+
+
+
+// ── SETUP CLOSE ───────────────────────────────────────
+function closeSetup(apply) {
+  const backdrop = document.getElementById('setup-modal');
+  backdrop.classList.remove('open');
+  backdrop.style.display = 'none';
+
+  // Try to auto-rejoin from localStorage if returning user
+  const savedId   = localStorage.getItem('pcc_project_id');
+  const savedName = localStorage.getItem('pcc_project_name');
+  const savedPw   = localStorage.getItem('pcc_pw_hash');
+  if (!apply && savedId && db) {
+    getDb().from('projects').select('*').eq('id', savedId).eq('password_hash', savedPw).single().then(({ data }) => {
+      if (data) {
+        currentProjectId = data.id;
+        if (data.state) applyStateSnapshot(JSON.parse(data.state));
+        applyProjectMeta(data.name, data.client, data.sp_url, data.sp_name);
+        startSync();
+      }
+    });
+  }
+}
+
+// ── AUTO-REJOIN ON LOAD ───────────────────────────────
+window.addEventListener('load', () => {
+  const savedId = localStorage.getItem('pcc_project_id');
+  const savedPw = localStorage.getItem('pcc_pw_hash');
+
+  // No saved credentials — show the normal setup modal as-is
+  if (!savedId || !savedPw) return;
+
+  // Wait for Supabase to initialize
+  setTimeout(() => {
+    if (!getDb()) return; // Supabase didn't load — show setup modal as-is
+
+    // Show reconnecting message inside the modal
+    const modal = document.getElementById('setup-modal');
+    const inner = modal.querySelector('.modal');
+    const originalHTML = inner.innerHTML; // save in case we need to restore
+
+    inner.innerHTML = `
+      <div style="text-align:center;padding:2rem 0;">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem;">Reconnecting…</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem;">Loading your project from the database.</div>
+        <button onclick="localStorage.clear();location.reload();" class="btn">Start Fresh Instead</button>
+      </div>`;
+
+    getDb().from('projects').select('*').eq('id', savedId).eq('password_hash', savedPw).single()
+      .then(({ data, error }) => {
+        if (data && !error) {
+          currentProjectId = data.id;
+          if (data.state) applyStateSnapshot(JSON.parse(data.state));
+          applyProjectMeta(data.name, data.client, data.sp_url, data.sp_name);
+          // Only NOW hide the modal — connection confirmed
+          modal.classList.remove('open');
+          modal.style.display = 'none';
+          startSync();
+        } else {
+          // Invalid credentials — clear and restore setup modal
+          localStorage.removeItem('pcc_project_id');
+          localStorage.removeItem('pcc_project_name');
+          localStorage.removeItem('pcc_pw_hash');
+          inner.innerHTML = originalHTML;
+        }
+      })
+      .catch(() => {
+        // Network error — restore setup modal so user can try manually
+        localStorage.removeItem('pcc_project_id');
+        localStorage.removeItem('pcc_project_name');
+        localStorage.removeItem('pcc_pw_hash');
+        inner.innerHTML = originalHTML;
+      });
+  }, 800);
+});
+
+function switchProject() {
+  if (!confirm('Switch to a different project? Your current session will be cleared.')) return;
+  localStorage.removeItem('pcc_project_id');
+  localStorage.removeItem('pcc_project_name');
+  localStorage.removeItem('pcc_pw_hash');
+  if (syncInterval) clearInterval(syncInterval);
+  location.reload();
+}
+
+function applyProjectMeta(name, client, spUrl, spName) {
+  const logo = document.getElementById('header-logo');
+  if (logo) {
+    if (name && client) {
+      logo.innerHTML = `${name} <span>· ${client}</span>`;
+      document.title = name;
+    } else if (name) {
+      logo.innerHTML = `${name} <span>Command Center</span>`;
+      document.title = name;
+    }
+  }
+  if (spUrl)  state.spFolderUrl  = spUrl;
+  if (spName) state.spFolderName = spName;
+  renderSpFolderCard();
+}
+
+function renderSpFolderCard() {
+  // Update the SharePoint card in the Files tab
+  const url  = state.spFolderUrl  || 'https://premierinc.sharepoint.com/teams/PhysicianEnterpriseAdvisory/Shared%20Documents/3.%20Projects/Prisma/2026%20Engagement';
+  const name = state.spFolderName || '2026 Engagement';
+  const card = document.querySelector('#contracts-tab-sharepoint .card');
+  if (!card) return;
+  card.querySelector('div > div:first-child').textContent = name;
+  const link = card.querySelector('a');
+  if (link) link.href = url;
+}
+
+// ─── INIT ─────────────────────────────────────────────
+initWorkPlan();
+renderTasks();
+renderBusinessCases();
+renderTrackedFiles();
+renderClientSidebar();
+renderInternalSidebar();
+renderWeeklyLog();
+renderWeeklyRollup();
+renderOverview();
+// Ensures Enter in contenteditable creates <div> not <p>, better list compatibility
+try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch(e) {}</script>
+</body>
+</html>
